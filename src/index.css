@@ -1,0 +1,163 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ----- Brand fonts -----
+   PayPal Pro Black = display headlines (heavy)
+   Plain Regular / Medium = body and UI text */
+
+@font-face {
+  font-family: 'PayPal Pro';
+  src: url('/fonts/PayPalPro-Black.otf') format('opentype');
+  font-weight: 700 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Plain';
+  src: url('/fonts/Plain-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Plain';
+  src: url('/fonts/Plain-Medium.otf') format('opentype');
+  font-weight: 500 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #0b0f1a;
+  color: #fff;
+  /* Default body font is Plain — matches every `font-['Plain:Medium']` and
+     `font-['Plain:Regular']` reference in the Figma file. */
+  font-family: 'Plain', 'Inter', -apple-system, BlinkMacSystemFont,
+    'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Display type uses PayPal Pro Black — used by every Figma headline
+   (`font-['PayPal_Pro:Black']`, 24–32px, tracking -1px). */
+h1,
+h2,
+h3,
+.font-display {
+  font-family: 'PayPal Pro', 'Plain', 'Inter', -apple-system,
+    BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.015em;
+}
+
+/* Opt-in helpers when overrides are needed:
+   - `.font-text` forces Plain on a single element.
+   - `.font-display` forces PayPal Pro Black on a single element. */
+.font-text {
+  font-family: 'Plain', 'Inter', -apple-system, BlinkMacSystemFont,
+    'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+/* BTC chart line draw-on. The path uses pathLength="1" so the whole
+   line is one normalized unit; the animation sweeps the dash offset
+   from 1 (fully hidden) to 0 (fully drawn). forwards holds the drawn
+   state so the line stays visible after the sweep. Re-played by
+   remounting the <path> via a React key whenever the data changes. */
+@keyframes btc-draw-on {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Global scrollbar suppression — this prototype emulates native phone
+   chrome, so OS/browser scrollbars are never appropriate. iOS Safari
+   in particular can paint an overlay scroll indicator that ignores
+   per-element `scrollbar-width: none` unless every scrollable ancestor
+   opts out. Belt-and-suspenders rule below kills both the WebKit
+   overlay and the Firefox/Edge gutter on EVERY element. */
+*::-webkit-scrollbar,
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* ----- View-switch animations -----
+   Two-phase sequence between the home feed and the wallet page.
+   Phase 1 fades + scales the outgoing view down.
+   Phase 2 fades + slides the incoming view up from below.
+   The two phases are sequenced in JS via setTimeout (see App.tsx
+   `runTransition`) so Phase 2 starts only after Phase 1 finishes. */
+
+@keyframes view-exit {
+  0%   { opacity: 1; transform: translateY(0px) scale(1); }
+  100% { opacity: 0; transform: translateY(0px) scale(0.96); }
+}
+
+@keyframes view-enter {
+  0%   { opacity: 0; transform: translateY(24px) scale(1); }
+  100% { opacity: 1; transform: translateY(0px) scale(1); }
+}
+
+/* ----- L0 background glow oscillation -----
+   Slow, continuous hue cycle that keeps the glow firmly in the blue
+   family while shifting between deeper royal blue, cyan-tinted blue,
+   and a soft violet edge. Combined with a subtle opacity wobble so the
+   intensity breathes a little as the colour shifts. 14s loop is slow
+   enough that the motion feels ambient, not animated. */
+
+@keyframes l0-hue-cycle {
+  0%   { filter: hue-rotate(-18deg) blur(16px); opacity: 0.95; }
+  25%  { filter: hue-rotate(12deg) blur(16px);  opacity: 1;    }
+  50%  { filter: hue-rotate(22deg) blur(16px);  opacity: 0.95; }
+  75%  { filter: hue-rotate(-6deg) blur(16px);  opacity: 1;    }
+  100% { filter: hue-rotate(-18deg) blur(16px); opacity: 0.95; }
+}
+
+/* ----- Transfer hero character entry -----
+   Each character in the hero value display ("$" + each digit) animates
+   in with a brief scale + fade when it's newly mounted. Existing
+   characters never re-animate because their React key is stable; only a
+   new character or a replaced character triggers a fresh mount and
+   therefore a fresh animation run. */
+
+@keyframes hero-char-pop {
+  0%   { opacity: 0; transform: scale(0.35); }
+  55%  { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.hero-char {
+  display: inline-block;
+  transform-origin: center center;
+  animation: hero-char-pop 280ms cubic-bezier(0.22, 0.85, 0.25, 1) backwards;
+  /* font-size is set inline; the transition lets the digits + $
+     gently shrink/grow as more characters are typed. */
+  transition: font-size 200ms cubic-bezier(0.22, 0.85, 0.25, 1),
+              letter-spacing 200ms cubic-bezier(0.22, 0.85, 0.25, 1);
+}
