@@ -3934,6 +3934,9 @@ const PhoneShell = ({
   displayView,
   phase,
   bare = false,
+  loading = false,
+  error = false,
+  onErrorRetry,
 }: {
   children: React.ReactNode
   scrollRef: React.RefObject<HTMLDivElement | null>
@@ -3942,6 +3945,15 @@ const PhoneShell = ({
   // `bare` = mobile/share mode — strip the outer bezel chrome and the
   // dynamic island, since the device's own screen takes their role.
   bare?: boolean
+  // Fake "Loading" state demo (Prototype menu → States accordion). Shows a
+  // skeleton-shimmer overlay in place of the real feed content; purely
+  // visual, driven by a timer in App(), not real loading state.
+  loading?: boolean
+  // Fake "Error" state demo (Prototype menu → States accordion). Shows the
+  // Figma "Error.Load" connection-error screen in place of the real feed
+  // content; purely visual, no real network state.
+  error?: boolean
+  onErrorRetry?: () => void
 }) => {
   // Wallet, Transfer and PayPal+ have been removed from the build, so Home
   // is the only real destination — the bottom nav still renders all of its
@@ -4019,6 +4031,90 @@ const PhoneShell = ({
       {/* Crypto Overview sheet — opens when the Crypto card's header
           area is tapped. Lists holdings + explorable coins. */}
       <CryptoOverviewSheet />
+      {/* Fake "Loading" state overlay (Prototype menu → States accordion).
+          Shapes mirror the real above-the-fold feed (AccountSnapshot tiles,
+          TopStoresRow avatars, HeroCarousel, first TileGroup) so the skeleton
+          reads as "this screen," not generic bars. App() reverts `loading`
+          to false via a timer — purely a UI demo, no real loading state. */}
+      {loading && (
+        <div
+          className="absolute inset-0 overflow-hidden flex flex-col gap-4"
+          style={{ zIndex: 60, background: '#0b0f1a', paddingTop: 96, paddingBottom: 96 }}
+        >
+          {/* AccountSnapshot row */}
+          <div className="flex gap-3 px-4">
+            <div className="skeleton-shimmer shrink-0" style={{ width: 225, height: 127, borderRadius: 12 }} />
+            <div className="skeleton-shimmer shrink-0" style={{ width: 225, height: 127, borderRadius: 12 }} />
+          </div>
+          {/* TopStoresRow avatars */}
+          <div className="flex gap-3 px-4">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="flex flex-col items-center gap-2 shrink-0" style={{ width: 96 }}>
+                <div className="skeleton-shimmer rounded-full" style={{ width: 64, height: 64 }} />
+                <div className="skeleton-shimmer" style={{ width: 48, height: 10, borderRadius: 4 }} />
+              </div>
+            ))}
+          </div>
+          {/* HeroCarousel */}
+          <div className="px-4 flex justify-center">
+            <div className="skeleton-shimmer" style={{ width: 320, height: 340, borderRadius: 32 }} />
+          </div>
+          {/* First TileGroup ("New York City") */}
+          <div className="px-4 flex justify-center">
+            <div
+              className="relative overflow-hidden"
+              style={{ width: 370, height: 200, borderRadius: 24, background: 'rgba(129,129,129,0.2)' }}
+            >
+              <div className="flex flex-col gap-2 px-4 pt-4">
+                <div className="skeleton-shimmer" style={{ width: 160, height: 20, borderRadius: 6 }} />
+                <div className="skeleton-shimmer" style={{ width: 110, height: 20, borderRadius: 6 }} />
+              </div>
+              <div className="flex gap-3 px-4 mt-4">
+                <div className="skeleton-shimmer" style={{ width: 136, height: 136, borderRadius: 24 }} />
+                <div className="skeleton-shimmer" style={{ width: 136, height: 136, borderRadius: 24 }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Fake "Error" state overlay (Prototype menu → States accordion).
+          Figma: "Error.Load" (node 11795:41951) — centered warning icon,
+          headline, subtext, and a "Try again" pill that resets the demo
+          back to Default. Purely a UI demo, no real network state. */}
+      {error && (
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 text-center"
+          style={{ zIndex: 60, background: '#0b0f1a' }}
+        >
+          <div
+            className="flex items-center justify-center rounded-full"
+            style={{ width: 64, height: 64, background: '#7a1414' }}
+          >
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M12 3 L22 20.5 H2 Z"
+                stroke="#fff"
+                strokeWidth="1.8"
+                strokeLinejoin="round"
+              />
+              <line x1="12" y1="9.5" x2="12" y2="14.5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
+              <circle cx="12" cy="17.3" r="1.1" fill="#fff" />
+            </svg>
+          </div>
+          <h2 className="font-display text-white text-[20px] leading-[26px]">
+            We&rsquo;re having trouble connecting
+          </h2>
+          <p className="font-text text-white/70 text-[15px] leading-[20px] -mt-2">
+            Please check your connection and try again.
+          </p>
+          <button
+            onClick={onErrorRetry}
+            className="px-5 py-2.5 rounded-full bg-white/12 hover:bg-white/[0.18] text-white text-[15px] font-semibold transition"
+          >
+            Try again
+          </button>
+        </div>
+      )}
       {/* Sheet-aware status bar duplicate — when a sheet (BrowserSheet,
           BitcoinPdpSheet, CryptoOverviewSheet) is open, the original
           StatusBar above gets covered by the sheet's solid black
@@ -9634,7 +9730,7 @@ export default function App() {
   const [fakeAccordionSections] = useState<
     { id: string; name: string; options: string[] }[]
   >([
-    { id: 'states', name: 'States', options: ['Default', 'Empty', 'Loading', 'Error'] },
+    { id: 'states', name: 'States', options: ['Default', 'Loading', 'Error', 'Empty'] },
     { id: 'cohort', name: 'Cohort', options: ['New user', 'Existing user', 'High value'] },
   ])
   // "Add" is a UI concept only — it shows what adding a custom component to
@@ -9643,6 +9739,18 @@ export default function App() {
   const [addComponentModalOpen, setAddComponentModalOpen] = useState(false)
   const [addComponentCode, setAddComponentCode] = useState('')
   const [addComponentSlot, setAddComponentSlot] = useState<number>(FRAMES[0]?.id ?? 1)
+  // States accordion demo. "Loading" shows a skeleton-shimmer overlay for a
+  // couple seconds then reverts to Default on its own; "Error" shows the
+  // Figma "Error.Load" connection-error screen and stays until the user
+  // taps "Try again" or picks Default. "Empty" isn't wired up yet — a
+  // UI-only demo, no real states/cohort switching exists.
+  const [statesDemo, setStatesDemo] = useState<'default' | 'loading' | 'error'>('default')
+  const triggerStatesLoadingDemo = () => {
+    setStatesDemo('loading')
+    window.setTimeout(() => {
+      setStatesDemo((cur) => (cur === 'loading' ? 'default' : cur))
+    }, 2200)
+  }
   // Mobile / "bare" presentation mode. Set ?mobile=1 (or ?bare=1) in
   // the URL to strip the prototype chrome — sidebar, toggle, prototype
   // nav, phone bezel, dynamic island, gradient bg — so the 402×874
@@ -10113,14 +10221,37 @@ export default function App() {
               </button>
               {openAccordions.has(section.id) && (
                 <div className="flex flex-col gap-2 pb-3">
-                  {section.options.map((opt) => (
-                    <button
-                      key={opt}
-                      className="text-left px-3 py-2 rounded-lg text-[14px] font-medium leading-[20px] text-white/70 bg-white/5 hover:bg-white/[0.08] transition"
-                    >
-                      {opt}
-                    </button>
-                  ))}
+                  {section.options.map((opt) => {
+                    const isStates = section.id === 'states'
+                    const isActive =
+                      isStates &&
+                      ((opt === 'Default' && statesDemo === 'default') ||
+                        (opt === 'Loading' && statesDemo === 'loading') ||
+                        (opt === 'Error' && statesDemo === 'error'))
+                    const onOptionClick = !isStates
+                      ? undefined
+                      : opt === 'Default'
+                        ? () => setStatesDemo('default')
+                        : opt === 'Loading'
+                          ? triggerStatesLoadingDemo
+                          : opt === 'Error'
+                            ? () => setStatesDemo('error')
+                            : undefined
+                    return (
+                      <button
+                        key={opt}
+                        onClick={onOptionClick}
+                        disabled={isStates && opt === 'Loading' && statesDemo === 'loading'}
+                        className={`text-left px-3 py-2 rounded-lg text-[14px] font-medium leading-[20px] transition ${
+                          isActive
+                            ? 'text-white bg-white/[0.12]'
+                            : 'text-white/70 bg-white/5 hover:bg-white/[0.08]'
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    )
+                  })}
                 </div>
               )}
               <div className="border-b border-white/10" />
@@ -10161,6 +10292,9 @@ export default function App() {
             scrollRef={scrollRef}
             displayView={displayView}
             phase={phase}
+            loading={statesDemo === 'loading'}
+            error={statesDemo === 'error'}
+            onErrorRetry={() => setStatesDemo('default')}
           >
             <Feed />
           </PhoneShell>
