@@ -296,8 +296,9 @@ const FRAMES: Frame[] = [
   // ZENNI / WARBY tiles peeks at the bottom.
   // "Top tec gifts" is another generic Card.Collection.Spotlight instance.
   { id: 11, label: 'Spotlight Collection 2', anchor: 'tec-gifts', offset: -555 },
-  // "Big styles." is a Card.Collection.Square tile group.
-  { id: 12, label: 'Square Collection 4', anchor: 'big-styles' },
+  // "Big styles." is a Card.Collection.Square tile group. Positive offset
+  // scrolls less than the default so the heading clears the status bar.
+  { id: 12, label: 'Square Collection 4', anchor: 'big-styles', offset: 60 },
   // PayPal Card scrolls past the Mastercard promo + See better tiles so
   // Refresh your space (IKEA chair) becomes the focal point, with See
   // better tile labels peeking at top and Find your sound (Reverb / Guitar
@@ -305,15 +306,17 @@ const FRAMES: Frame[] = [
   // PayPal Cashback Mastercard promo is a Card.NBA.Carousel instance.
   { id: 13, label: 'NBA Carousel', anchor: 'paypal-mastercard', offset: -695 },
   // "See better. Look even better." is a Card.Collection.Square tile group.
-  { id: 14, label: 'Square Collection 5', anchor: 'see-better' },
+  // Larger positive offset — this one overshot the most under the default.
+  { id: 14, label: 'Square Collection 5', anchor: 'see-better', offset: 90 },
   // Refresh scrolls past the Refresh your space + Find your sound sections
   // so Track orders to your doorstep becomes the focal point. Find your
   // sound (Reverb / Guitar Center / Sam Ash tiles + labels) fully fills
   // the top band, with Track orders fully visible below.
   // "Refresh your space" is a generic Card.Collection.Spotlight instance.
   { id: 15, label: 'Spotlight Collection 3', anchor: 'refresh-space', offset: -400 },
-  // "Find your sound" is a Card.Collection.Square tile group.
-  { id: 16, label: 'Square Collection 6', anchor: 'find-your-sound' },
+  // "Find your sound" is a Card.Collection.Square tile group. Positive
+  // offset scrolls less than the default so the heading clears the status bar.
+  { id: 16, label: 'Square Collection 6', anchor: 'find-your-sound', offset: 60 },
   // "Track orders to your doorstep" is a Card.NBA.Spotlight instance
   // (Figma 24:2460), the same NBA-branded family as Crypto (frame 10).
   { id: 17, label: 'NBA Spotlight - Tracking', anchor: 'track-orders' },
@@ -344,19 +347,6 @@ const BellIcon = () => (
       strokeLinecap="round"
       strokeLinejoin="round"
       d="M6 9a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6zm5 11a2 2 0 0 0 2 0"
-    />
-  </svg>
-)
-
-const ChevronIcon = ({ dir }: { dir: 'left' | 'right' }) => (
-  <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
-    <path
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d={dir === 'left' ? 'M15 6l-6 6 6 6' : 'M9 6l6 6-6 6'}
     />
   </svg>
 )
@@ -4058,57 +4048,6 @@ const PhoneShell = ({
   </div>
   )
 }
-
-// ---------- Prototype nav ----------
-
-const PrototypeNav = ({
-  active,
-  onSelect,
-}: {
-  active: number
-  onSelect: (id: number) => void
-}) => (
-  <div className="flex flex-col items-center gap-4">
-    <div className="flex items-center gap-2">
-      <button
-        onClick={() => onSelect(Math.max(1, active - 1))}
-        disabled={active === 1}
-        className="h-10 w-10 rounded-full bg-white/5 hover:bg-white/10 disabled:opacity-30 text-white flex items-center justify-center"
-        aria-label="Previous frame"
-      >
-        <ChevronIcon dir="left" />
-      </button>
-      <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/5 border border-[#CCCCCC]/35">
-        {FRAMES.map((f) => (
-          <button
-            key={f.id}
-            onClick={() => onSelect(f.id)}
-            className={`h-2.5 w-2.5 rounded-full transition ${
-              f.id === active ? 'bg-link scale-125' : 'bg-white/30 hover:bg-white/60'
-            }`}
-            aria-label={`Frame ${f.id}: ${f.label}`}
-          />
-        ))}
-      </div>
-      <button
-        onClick={() => onSelect(Math.min(FRAMES.length, active + 1))}
-        disabled={active === FRAMES.length}
-        className="h-10 w-10 rounded-full bg-white/5 hover:bg-white/10 disabled:opacity-30 text-white flex items-center justify-center"
-        aria-label="Next frame"
-      >
-        <ChevronIcon dir="right" />
-      </button>
-    </div>
-    <div className="text-center">
-      <p className="text-[11px] uppercase tracking-[0.16em] text-white/40">
-        Frame {active} of {FRAMES.length}
-      </p>
-      <p className="text-[14px] text-white mt-0.5 font-medium">
-        {FRAMES.find((f) => f.id === active)?.label}
-      </p>
-    </div>
-  </div>
-)
 
 
 // ---------- In-App Browser (Figma node 77:2812) ----------
@@ -8621,7 +8560,7 @@ type CatalogEntry = {
 const CATALOG_ENTRIES: CatalogEntry[] = [
   {
     id: 'account-snapshot',
-    name: 'AccountSnapshot',
+    name: 'Account Snapshot',
     group: 'Feed sections',
     description:
       'The top-of-feed balance card: PayPal balance, Pay Later, PayPal+ and Crypto account tiles.',
@@ -8743,12 +8682,56 @@ const CATALOG_ENTRIES: CatalogEntry[] = [
     render: () => <AccountSnapshot />,
   },
   {
+    id: 'top-stores-row',
+    name: 'Hero Collection',
+    group: 'Feed sections',
+    description:
+      'The "Card.Collection.Hero" pattern: a horizontally-scrollable row of circular brand chips, each with a logo, name and cashback rate.',
+    usage: 'Sits at the very top of the Home feed, just below Account Snapshot (frame 2, "Hero Collection").',
+    code: `// Card.Collection.Hero (Figma 1:336).
+<section className="mt-4">
+  <div className="px-6">
+    <SectionTitle blueTop="Pay later" whiteBottom="at top stores" />
+  </div>
+  <HScroll className="px-3 pt-2">
+    {[
+      { name: 'Target', back: '5% back', src: '/images/brand-target.png' },
+      { name: 'Walmart', back: '5% back', src: '/images/brand-walmart.png' },
+      { name: 'Ikea', back: '3% back', src: '/images/brand-ikea.png' },
+      { name: 'Uniqlo', back: '5% back', src: '/images/brand-uniqlo.png', bg: '#ec1d24' },
+      { name: 'Nike', back: '5% back', src: '/images/brand-nike.png' },
+    ].map((s) => (
+      <div key={s.name} className="shrink-0 w-[96px] flex flex-col items-center">
+        {/* Avatar: 64×64 circle, 1px border rgba(255,255,255,0.24),
+            per-brand fill (transparent by default), logo cropped to fit. */}
+        <div className="relative rounded-full overflow-hidden" style={{
+          width: 64, height: 64, background: s.bg ?? 'transparent',
+          border: '1px solid rgba(255,255,255,0.24)' }}>
+          <img src={s.src} className="absolute inset-0 w-full h-full object-cover" />
+        </div>
+        {/* Name 12px/16px weight 500 white, "Pay Later" 12px/16px
+            rgba(255,255,255,0.72), back-rate 12px/16px #60cdff. */}
+        <p style={{ fontSize: 12, lineHeight: '16px', fontWeight: 500 }}>{s.name}</p>
+        <p style={{ fontSize: 12, lineHeight: '16px', color: 'rgba(255,255,255,0.72)' }}>Pay Later</p>
+        <p style={{ fontSize: 12, lineHeight: '16px', color: '#60cdff' }}>{s.back}</p>
+      </div>
+    ))}
+  </HScroll>
+</section>`,
+    whySeeing: {
+      explanation:
+        'Always slot 0.5, right below Account Snapshot. Educates users that PayPal offers Pay Later at the biggest brands — shown to every customer regardless of purchase history.',
+      signals: ['Always shown', 'Pay Later eligible', 'Top-brand merchants'],
+    },
+    render: () => <TopStoresRow />,
+  },
+  {
     id: 'deck-carousel',
-    name: 'DeckCarousel',
+    name: 'Deck Collection',
     group: 'Feed sections',
     description: 'The swipeable "Deck Collection" card carousel (brand spotlight cards).',
     usage:
-      'Sits in the Home feed below Account Snapshot (frame 2, "Deck Collection"). Tapping a card opens the in-app Browser sheet via openBrowser(brand) from NavContext.',
+      'Sits in the Home feed below Account Snapshot and Hero Collection (frame 3, "Deck Collection"). Tapping a card opens the in-app Browser sheet via openBrowser(brand) from NavContext.',
     code: `// Outer stack: 370×497. Slot geometry for the 3-card fan
 // (DECK_SLOT_GEOM) — front is centred/full-size, back cards peek out
 // ±28px, rotated ±8°, scaled to 280×374 (87.5% of front):
@@ -8850,12 +8833,12 @@ const DECK_SLOT_GEOM = {
   },
   {
     id: 'tile-group',
-    name: 'TileGroup',
+    name: 'Square Collection',
     group: 'Feed sections',
     description:
       'The "Card.Collection.Square" pattern: a horizontally-scrollable row of square 136×136 brand tiles, each with a logo, name and cashback rate.',
     usage:
-      'Used repeatedly through the Home feed for brand collections — e.g. "New York City / shopper favorites" (frame 3, "List NBA"). Takes a title/subtitle and a list of items.',
+      'Used repeatedly through the Home feed for brand collections — e.g. "New York City / shopper favorites" (frame 4, "Square Collection 1"). Takes a title/subtitle and a list of items.',
     code: `// Card.Collection.Square (Figma 1:1072). Every rounded rect here —
 // outer container and inner tiles — is an instance of the shared
 // design-system <Card> primitive; only width/height/radius/fill change.
@@ -8918,13 +8901,70 @@ const DECK_SLOT_GEOM = {
     ),
   },
   {
+    id: 'extra-points',
+    name: 'NBA List',
+    group: 'Feed sections',
+    description:
+      'The "Card.NBA.List" pattern: a dark-navy card with a stacked, dividerless list of merchant rows (avatar, name, cashback rate).',
+    usage: 'Part of the Home feed, in the "NBA List" section (frame 5).',
+    code: `// Card.NBA.List (Figma 15:371). Outer container: 370×397, solid
+// rgb(16, 26, 51) fill, 24px radius. Inner list: 338×291 at left:16
+// top:90 — 4 rows of 338×72, translucent grey fill, 1px gap between
+// rows (the navy outer shows through as the divider); first/last row
+// get 24px corner radius on their outer edge only.
+<section className="mt-4 px-4">
+  <Card width={370} radius={24} fill="rgb(16, 26, 51)" height={397}>
+    <div style={{ left: 16, top: 16, width: 338, height: 58 }}>
+      <h2 style={{ fontSize: 24, lineHeight: '28px', letterSpacing: '-1px', fontWeight: 900 }}>
+        Extra points.
+        <br />
+        <span style={{ color: '#60cdff' }}>Limited time.</span>
+      </h2>
+    </div>
+    <div style={{ left: 16, top: 90, width: 338, height: 291 }}>
+      {[
+        { back: '5% back', src: '/images/brand-uniqlo.png', bg: '#ec1d24' },
+        { back: '3% back', src: '/images/brand-ultabeauty.png' },
+        { back: '2% back', src: '/images/brand-hm.png' },
+        { back: '5% back', src: '/images/brand-apple.png' },
+      ].map((r, i, rows) => (
+        <div key={i} style={{
+          top: i * 73, width: 338, height: 72, background: 'rgba(129,129,129,0.2)',
+          borderTopLeftRadius: i === 0 ? 24 : 0, borderTopRightRadius: i === 0 ? 24 : 0,
+          borderBottomLeftRadius: i === rows.length - 1 ? 24 : 0,
+          borderBottomRightRadius: i === rows.length - 1 ? 24 : 0,
+        }}>
+          {/* Row content: 40×40 circular avatar at left:16, back-rate
+              16px/24px weight 500 white + "Cash back" 12px/16px
+              rgba(255,255,255,0.72) at left:68. */}
+          <div style={{ left: 16, width: 40, height: 40, borderRadius: 999,
+            background: r.bg ?? 'transparent', border: '1px solid rgba(204,204,204,0.28)' }}>
+            <img src={r.src} className="absolute inset-0 w-full h-full object-cover" />
+          </div>
+          <p style={{ left: 68, fontSize: 16, lineHeight: '24px', fontWeight: 500 }}>{r.back}</p>
+          <p style={{ left: 68, fontSize: 12, lineHeight: '16px', color: 'rgba(255,255,255,0.72)' }}>
+            Cash back
+          </p>
+        </div>
+      ))}
+    </div>
+  </Card>
+</section>`,
+    whySeeing: {
+      explanation:
+        'Time-boxed limited offer. Surfaces a rotating set of elevated cashback rates to every customer during the promotional window.',
+      signals: ['Limited-time offer', 'Elevated cashback rate'],
+    },
+    render: () => <ExtraPoints />,
+  },
+  {
     id: 'spotlight-section',
-    name: 'SpotlightSection',
+    name: 'Spotlight Collection',
     group: 'Feed sections',
     description:
       'The "Card.Colection.Spotlight" pattern: a horizontally-scrollable row of larger 250×314 hero cards, each with an avatar, a cashback badge, a product image and a footer.',
     usage:
-      'Used for merchandising moments in the Home feed — e.g. "This weeks spring heros" (frame 4, "Splash Collection 1"), "Top tec gifts" and "Refresh your space". Takes a title/subtitle and a list of cards.',
+      'Used for merchandising moments in the Home feed — e.g. "This weeks spring heros" (frame 6, "Spotlight Collection 1"), "Top tec gifts" and "Refresh your space". Takes a title/subtitle and a list of cards.',
     code: `// Card.Colection.Spotlight (Figma 15:1577). Outer and inner cards
 // are both instances of the shared design-system <Card> primitive
 // (height matches cardHeight — 420 for Spring heros, 380 for shorter
@@ -8981,10 +9021,10 @@ const DECK_SLOT_GEOM = {
   },
   {
     id: 'stream-cards',
-    name: 'StreamCards',
+    name: 'Fanned Collection',
     group: 'Feed sections',
     description: 'The horizontally-scrollable subscriptions/streaming promo row.',
-    usage: 'Part of the Home feed, in the "Fanned Collection" section (frame 5).',
+    usage: 'Part of the Home feed, in the "Fanned Collection" section (frame 7).',
     code: `// Outer + tile shells are both design-system <Card> instances.
 // Fan slot geometry (SLOT_GEOM) — front tile is centred/largest;
 // back tiles fan out at ±8/16° with decreasing width/height:
@@ -9051,10 +9091,10 @@ const SLOT_GEOM = {
   },
   {
     id: 'crypto-promo',
-    name: 'CryptoPromo',
+    name: 'NBA Crypto',
     group: 'Feed sections',
     description: 'The Crypto promo card shown inline in the feed (buy/sell teaser + coin ticker).',
-    usage: 'Part of the Home feed, in the "Spotlight NBA - Crypto" section (frame 6).',
+    usage: 'Part of the Home feed, in the "NBA Spotlight - Crypto" section (frame 10).',
     code: `// Card.NBA.Spotlight (Figma 15:4039). The outer container is a
 // design-system <Card> instance: 370 wide, height 493.006, 24px radius,
 // solid rgb(16, 26, 51) fill.
@@ -9100,10 +9140,10 @@ const SLOT_GEOM = {
   },
   {
     id: 'track-orders',
-    name: 'TrackOrders',
+    name: 'NBA Spotlight',
     group: 'Feed sections',
     description: 'The "Track orders to your doorstep" shipment promo card.',
-    usage: 'Part of the Home feed, in the "Spotlight NBA - Tracking" section (frame 10).',
+    usage: 'Part of the Home feed, in the "NBA Spotlight - Tracking" section (frame 17).',
     code: `// Card.NBA.Spotlight (Figma 24:2460). The outer container is a
 // design-system <Card> instance: 370 wide, height 433.006, 24px radius,
 // solid rgb(16, 26, 51) fill.
@@ -9141,10 +9181,10 @@ const SLOT_GEOM = {
   },
   {
     id: 'paypal-mastercard-promo',
-    name: 'PayPalMastercardPromo',
+    name: 'NBA Carousel',
     group: 'Feed sections',
     description: 'The PayPal Mastercard promo card, including the animated card-flip preview.',
-    usage: 'Part of the Home feed, in the "Carousel NBA" section (frame 8).',
+    usage: 'Part of the Home feed, in the "NBA Carousel" section (frame 13).',
     code: `// Card.NBA.Carousel (Figma 24:1855). Outer + per-slot shells are
 // both design-system <Card> instances. Outer: 370×514, 24px radius,
 // solid rgb(16, 26, 51) fill. 3-card fan slot geometry (front
@@ -9338,12 +9378,9 @@ const CatalogView = ({ entry }: { entry: CatalogEntry }) => {
           since this prototype has no live ranking engine. Full-height,
           with a constant 28px margin on every side. */}
       <div className="hidden lg:flex flex-col gap-5 w-[320px] shrink-0 self-stretch m-7 rounded-2xl bg-white/5 border border-[#CCCCCC]/35 p-5 overflow-y-auto">
-        <p className="text-[20px] font-medium leading-[32px] text-white">Why am I seeing this?</p>
+        <p className="text-[20px] font-medium leading-[32px] text-white">Overview</p>
         <div>
-          <p className="text-[14px] uppercase tracking-[0.08em] leading-[20px] text-white/40 font-medium mb-1">
-            Explanation
-          </p>
-          <p className="text-[14px] leading-[20px] text-white/70">{entry.whySeeing.explanation}</p>
+          <p className="text-[16px] leading-[22px] text-white/70">{entry.whySeeing.explanation}</p>
         </div>
         {entry.whySeeing.signals.length > 0 && (
           <div>
@@ -9786,7 +9823,7 @@ export default function App() {
                 catalogMode ? 'bg-white text-black' : 'text-white/45 hover:text-white/70'
               }`}
             >
-              Catalog
+              Components
             </button>
           </div>
         </div>
@@ -9871,10 +9908,6 @@ export default function App() {
             <Feed />
           </PhoneShell>
         </ScrollRootContext.Provider>
-        {/* Frame stepper + label — only on the Home feed. */}
-        {view === 'feed' && (
-          <PrototypeNav active={active} onSelect={scrollToFrame} />
-        )}
           </>
         )}
       </main>
