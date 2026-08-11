@@ -8548,11 +8548,29 @@ type CatalogEntry = {
   description: string
   usage: string
   code: string
-  // Illustrative "why am I seeing this" copy — this prototype has no live
-  // ranking engine, so these are representative examples of the reasoning
-  // a real personalization system would surface for this section, not a
-  // computed result.
-  whySeeing: { explanation: string; signals: string[] }
+  // Sourced from PRD-Home.pdf (Feed/NBA/Ads PRD). contentType/uiPattern/
+  // purpose are the PRD's own taxonomy; personalization/rankingObjective
+  // are illustrative applications of the Curator Model and Uber Ranker
+  // sections to this specific card — this prototype has no live ranking
+  // engine, so those two fields are representative, not computed.
+  whySeeing: {
+    contentType: string
+    uiPattern: string
+    purpose: string
+    personalization: string
+    rankingObjective: string
+    // Sourced from componentlogicsheets.pdf (per-UI-pattern technical/logic
+    // specs) — slotBehavior/interaction are given for every pattern; fallback
+    // is only documented for Collection patterns (Hero/Deck/Square/Splash/
+    // Fanned); contentGuidelines (character counts + legal text + content
+    // style) is only documented for the three NBA patterns (Spotlight/List/
+    // Carousel).
+    slotBehavior: string
+    interaction: string
+    fallback?: string
+    contentGuidelines?: string
+    phase: 'P0' | 'P1' | 'P2'
+  }
   navOverrides?: Partial<NavApi>
   render: () => React.ReactNode
 }
@@ -8675,9 +8693,16 @@ const CATALOG_ENTRIES: CatalogEntry[] = [
 // AcctHeader (inset 12/12) and AcctFooter (inset 12/67) are the only
 // bits that differ tile-to-tile; the Card shell stays pixel-identical.`,
     whySeeing: {
-      explanation:
-        'Always slot 0. Shown to every customer on every session, regardless of persona — surfaces balance, recent activity, and quick actions.',
-      signals: ['Always shown', 'Live balance data', 'Recent activity'],
+      contentType: 'Account Snapshot (fka Wallet Snapshot)',
+      uiPattern: 'n/a — fixed chip row, always above slot 1',
+      purpose:
+        'Exists solely for at-a-glance balance visibility, not financial management (that\'s "ME"). PRD describes it as "the shadow of Accounts in ME" — chip set, order, and critical-alert logic all mirror ME.',
+      personalization:
+        'Not personalized — identical chip set and order for every customer (PayPal balance first, Spending Power/Pay Later second). Only the balance values differ per account.',
+      rankingObjective: 'N/A — renders before the ranked feed begins; not part of the 75/15/10 Collections/NBA/Ads mix.',
+      slotBehavior: 'N/A — fixed chip row, always above slot 1; not part of the ranked/slotted feed.',
+      interaction: 'Tap a chip to open its detail sheet (balance, Pay Later, etc.).',
+      phase: 'P0',
     },
     render: () => <AccountSnapshot />,
   },
@@ -8719,9 +8744,17 @@ const CATALOG_ENTRIES: CatalogEntry[] = [
   </HScroll>
 </section>`,
     whySeeing: {
-      explanation:
-        'Always slot 0.5, right below Account Snapshot. Educates users that PayPal offers Pay Later at the biggest brands — shown to every customer regardless of purchase history.',
-      signals: ['Always shown', 'Pay Later eligible', 'Top-brand merchants'],
+      contentType: 'Hero',
+      uiPattern: 'Hero carousel',
+      purpose:
+        'The Hero collection\'s "one job" per the PRD: educate that PayPal offers Pay Later at the biggest brands. It\'s the cold-start default — always slot 1 of the feed.',
+      personalization:
+        'Not personalized — same top-BNPL merchants shown to every customer regardless of persona or transaction history.',
+      rankingObjective: 'Collections (75% of feed) optimize for merchant-site taps/clicks, which drives GMV.',
+      slotBehavior: 'Always slot #1, in 100% of sessions.',
+      interaction: 'Horizontal carousel of brand logo tiles; tap opens the merchant in an in-app browser (IAB).',
+      fallback: 'If payload/config fails, shows the last-good cached Hero.',
+      phase: 'P0',
     },
     render: () => <TopStoresRow />,
   },
@@ -8825,9 +8858,18 @@ const DECK_SLOT_GEOM = {
   </div>
 </section>`,
     whySeeing: {
-      explanation:
-        'Always slot 1. Educates users that PayPal offers Pay Later at the biggest brands — shown to every customer on every session, independent of purchase history.',
-      signals: ['Always shown', 'Pay Later eligible', 'Top-brand merchants'],
+      contentType: 'Top Category',
+      uiPattern: 'Deck Card',
+      purpose:
+        'Standardized commerce categories, market leaders — the PRD calls this type "the backbone of the feed": always-relevant categories that don\'t depend on cold-start personalization to be useful.',
+      personalization:
+        'Curator selects which standardized category to surface and which merchant chips populate it, using ConsumerDNA persona/category-affinity signals.',
+      rankingObjective: 'Collections (75% of feed) optimize for merchant-site taps/clicks, which drives GMV.',
+      slotBehavior:
+        'The component logic sheet\'s own Deck example is a "Deck (Seasonal)" card, slotted #2 by default for cold-start/fallback users (directly behind Hero) — this UI pattern isn\'t fixed to Top Category specifically.',
+      interaction: 'Novel card-based carousel with a flicker/reveal interaction of photography imagery; tap to shop opens IAB.',
+      fallback: 'If the lifestyle image is unavailable, falls back to a standard tile carousel.',
+      phase: 'P0',
     },
     render: () => <DeckCarousel />,
   },
@@ -8882,9 +8924,16 @@ const DECK_SLOT_GEOM = {
   </Card>
 </section>`,
     whySeeing: {
-      explanation:
-        'Location set to New York City. Surfaces merchants with high local engagement in the customer’s area — a "Near You" collection.',
-      signals: ['Location: New York City', 'High local engagement'],
+      contentType: 'Near You',
+      uiPattern: 'Square',
+      purpose: 'Location-based collection surfacing trending merchants near the customer.',
+      personalization:
+        'Curator selects the chips inside the collection using location plus local merchant-popularity signals — the location itself isn\'t curated, only which merchants represent it.',
+      rankingObjective: 'Collections (75% of feed) optimize for merchant-site taps/clicks, which drives GMV.',
+      slotBehavior: 'No fixed slot specified.',
+      interaction: 'Square tiles (logo + brand color); tap to shop opens IAB.',
+      fallback: 'On signal loss, defaults to a generic, popular collection.',
+      phase: 'P0',
     },
     render: () => (
       <TileGroup
@@ -8951,9 +9000,18 @@ const DECK_SLOT_GEOM = {
   </Card>
 </section>`,
     whySeeing: {
-      explanation:
-        'Time-boxed limited offer. Surfaces a rotating set of elevated cashback rates to every customer during the promotional window.',
-      signals: ['Limited-time offer', 'Elevated cashback rate'],
+      contentType: 'Next Best Action — Builds Daily Engagement Habits',
+      uiPattern: 'NBA List',
+      purpose:
+        'NBA (fka Recommendations) are "internal ads" for PayPal\'s own products. This one promotes a PP+ points offer to drive daily engagement, distinct from Collections in both content and objective.',
+      personalization:
+        'NBA content selection is its own Curator Model touchpoint, separate from Collections — this slot is chosen from the points-balance / promo-eligibility signal set, not transaction-history affinity.',
+      rankingObjective: 'NBA (15% of feed, fixed slots #4/#12/#20 at P0) optimizes for Customer LTV, not click-through.',
+      slotBehavior: 'Reference PRD — fixed NBA slots #4/#12/#20 at P0.',
+      interaction: 'Vertical list, max 4 rows; each row pairs an image with a label, optional description, and CTA.',
+      contentGuidelines:
+        'Title: ~2 lines, ~45–55 characters. Label: ~1 line max, ~28 characters. Description: ~1 line max, ~28 characters. CTA button label: ~1 line, ~10–12 characters (e.g. "Apply now," "Learn more"). Optional disclosure line beneath the card; tappable "Terms and Conditions" opens full terms where applicable.',
+      phase: 'P0',
     },
     render: () => <ExtraPoints />,
   },
@@ -9013,9 +9071,18 @@ const DECK_SLOT_GEOM = {
   </Card>
 </section>`,
     whySeeing: {
-      explanation:
-        'Calendar-driven "Seasonal" collection. Surfaces spring retail-event merchants to every customer regardless of purchase history.',
-      signals: ['Seasonal event: Spring', 'Shown to all customers'],
+      contentType: 'Seasonal',
+      uiPattern:
+        'Splash Card — PRD 2.4 names this UI pattern "Splash Card" (category-based collection with lifestyle imagery, falling back to a standard tile carousel if the image is unavailable); this codebase\'s Figma-layer comments call the same component "Spotlight." Worth reconciling naming with design before shipping.',
+      purpose:
+        'Calendar and retail-event driven (e.g. "Halloween Edit," spring). Cold-start default — always slot 2 of the feed, right after Hero.',
+      personalization:
+        'Not personalized during cold start — same event merchants shown to every customer for the promotional window. Which event runs is curated centrally, not per-user.',
+      rankingObjective: 'Collections (75% of feed) optimize for merchant-site taps/clicks, which drives GMV.',
+      slotBehavior: 'No fixed slot specified.',
+      interaction: 'Large image-led card carousel; tap to shop opens IAB.',
+      fallback: 'If photography imagery is unavailable, falls back to a standard square carousel.',
+      phase: 'P0',
     },
     render: () => <SpringHeros />,
   },
@@ -9083,9 +9150,16 @@ const SLOT_GEOM = {
   </Card>
 </section>`,
     whySeeing: {
-      explanation:
-        'High affinity for entertainment/streaming based on recent activity. A "For You" collection — introduces adjacent streaming merchants to balance familiarity with discovery.',
-      signals: ['Shopping interest: streaming', 'Personalized ranking'],
+      contentType: 'For You',
+      uiPattern: 'Fanned carousel',
+      purpose: 'Personalized from transaction history and ConsumerDNA behavior/persona signals — introduces adjacent categories to balance familiarity with discovery.',
+      personalization:
+        'Curator selects both the collection type and its chips from the customer\'s transaction-history affinity — here, a high recent affinity for entertainment/streaming.',
+      rankingObjective: 'Collections (75% of feed) optimize for merchant-site taps/clicks, which drives GMV.',
+      slotBehavior: 'No fixed slot specified.',
+      interaction: 'Stacked, swipeable cards users fan through; tap to shop opens IAB.',
+      fallback: 'Falls back to the Square card format if the fanned layout can\'t render.',
+      phase: 'P0',
     },
     render: () => <StreamCards />,
   },
@@ -9132,9 +9206,17 @@ const SLOT_GEOM = {
   </Card>
 </section>`,
     whySeeing: {
-      explanation:
-        'Discovery-oriented customer profile. Crypto surfaces as a Next Best Action for users with high exploration tendency and no existing crypto product.',
-      signals: ['No crypto product', 'High exploration tendency'],
+      contentType: 'Next Best Action — Expands Wallet Share',
+      uiPattern: 'NBA Spotlight',
+      purpose: 'NBA promoting PayPal\'s own Crypto product to grow wallet share — an "internal ad," not a merchant Collection.',
+      personalization:
+        'Selected from the Expands Wallet Share NBA category for customers with no existing crypto product and a high exploration/discovery tendency.',
+      rankingObjective: 'NBA (15% of feed, fixed slots #4/#12/#20 at P0) optimizes for Customer LTV, not click-through.',
+      slotBehavior: 'Reference PRD — fixed NBA slots #4/#12/#20 at P0.',
+      interaction: 'Single card with headline, optional description, image, and CTA; tapping the card or CTA funnels the user toward learning more and into the utility flows.',
+      contentGuidelines:
+        '3D render illustration recommended. Title: ~2 lines, ~40–50 characters. Description: ~2 line max, ~85–90 characters. CTA button label: ~1 line, ~10–12 characters (e.g. "Apply now," "Learn more"). Optional disclosure line beneath the card; tappable "Terms and Conditions" opens full terms where applicable.',
+      phase: 'P0',
     },
     render: () => <CryptoPromo />,
   },
@@ -9173,9 +9255,17 @@ const SLOT_GEOM = {
   </Card>
 </section>`,
     whySeeing: {
-      explanation:
-        'Active shopper across multiple categories. Package tracking is offered as a Next Best Action to increase app engagement for customers with regular purchase activity.',
-      signals: ['Active shopper', 'Regular purchase activity'],
+      contentType: 'Next Best Action — Builds Daily Engagement Habits',
+      uiPattern: 'NBA Spotlight',
+      purpose: 'NBA promoting package tracking to build a daily-open habit — an "internal ad" for a PayPal feature, not a merchant Collection.',
+      personalization:
+        'Selected from the Builds Daily Engagement Habits NBA category for active shoppers with regular purchase activity, to increase app engagement.',
+      rankingObjective: 'NBA (15% of feed, fixed slots #4/#12/#20 at P0) optimizes for Customer LTV, not click-through.',
+      slotBehavior: 'Reference PRD — fixed NBA slots #4/#12/#20 at P0.',
+      interaction: 'Single card with headline, optional description, image, and CTA; tapping the card or CTA funnels the user toward learning more and into the utility flows.',
+      contentGuidelines:
+        '3D render illustration recommended. Title: ~2 lines, ~40–50 characters. Description: ~2 line max, ~85–90 characters. CTA button label: ~1 line, ~10–12 characters (e.g. "Apply now," "Learn more"). Optional disclosure line beneath the card; tappable "Terms and Conditions" opens full terms where applicable.',
+      phase: 'P0',
     },
     render: () => <TrackOrders />,
   },
@@ -9249,9 +9339,17 @@ const MC_DESIGNS = [
   </Card>
 </section>`,
     whySeeing: {
-      explanation:
-        'Customer does not own a PayPal Mastercard. Established tenure and spending frequency indicate strong approval likelihood, so it is offered as a Next Best Action.',
-      signals: ['No PayPal Mastercard', 'Established tenure', 'Regular spend'],
+      contentType: 'Next Best Action — Expands Wallet Share',
+      uiPattern: 'NBA Carousel',
+      purpose: 'NBA promoting the PayPal Mastercard to grow wallet share — an "internal ad" for PayPal\'s own credit product, not a merchant Collection.',
+      personalization:
+        'Selected from the Expands Wallet Share NBA category for customers who don\'t hold a PayPal Mastercard whose tenure and spend frequency indicate strong approval likelihood.',
+      rankingObjective: 'NBA (15% of feed, fixed slots #4/#12/#20 at P0) optimizes for Customer LTV, not click-through.',
+      slotBehavior: 'Reference PRD — fixed NBA slots #4/#12/#20 at P0.',
+      interaction: 'Tapping the image shuffles through content — the front item moves to the back, the next slides forward, and the item label/label/pagination/description update accordingly; loops infinitely. Tapping the CTA brings the user to a detail page or contextual flow.',
+      contentGuidelines:
+        'Title: ~2 lines, ~40–50 characters. Item label: ~1 line max, ~30 characters. Label: ~1 line max, ~30 characters. Description: ~1 line max, ~30 characters. CTA button label: ~1 line, ~10–12 characters (e.g. "Apply now," "Learn more"). Optional disclosure line beneath the card; tappable "Terms and Conditions" opens full terms where applicable.',
+      phase: 'P0',
     },
     render: () => <PayPalMastercardPromo />,
   },
@@ -9373,30 +9471,81 @@ const CatalogView = ({ entry }: { entry: CatalogEntry }) => {
         </button>
       </div>
 
-      {/* Always-present tray — mirrors the Feed Simulator's "Why am I
-          seeing this?" side panel, but with illustrative static copy
-          since this prototype has no live ranking engine. Full-height,
+      {/* Always-present tray — sourced from PRD-Home.pdf's feed-composition,
+          collection-type, Curator Model, and Uber Ranker sections. Full-height,
           with a constant 28px margin on every side. */}
       <div className="hidden lg:flex flex-col gap-5 w-[320px] shrink-0 self-stretch m-7 rounded-2xl bg-white/5 border border-[#CCCCCC]/35 p-5 overflow-y-auto">
-        <p className="text-[20px] font-medium leading-[32px] text-white">Overview</p>
-        <div>
-          <p className="text-[16px] leading-[22px] text-white/70">{entry.whySeeing.explanation}</p>
+        <div className="flex items-center justify-between">
+          <p className="text-[20px] font-medium leading-[32px] text-white">Overview</p>
+          <span className="rounded-full bg-white/10 px-2.5 py-1 text-[12px] text-white/60 font-medium">
+            {entry.whySeeing.phase}
+          </span>
         </div>
-        {entry.whySeeing.signals.length > 0 && (
+
+        <div>
+          <p className="text-[14px] uppercase tracking-[0.08em] leading-[20px] text-white/40 font-medium mb-1">
+            Content Type
+          </p>
+          <p className="text-[16px] leading-[22px] text-white/70">{entry.whySeeing.contentType}</p>
+        </div>
+
+        <div>
+          <p className="text-[14px] uppercase tracking-[0.08em] leading-[20px] text-white/40 font-medium mb-1">
+            UI Pattern
+          </p>
+          <p className="text-[16px] leading-[22px] text-white/70">{entry.whySeeing.uiPattern}</p>
+        </div>
+
+        <div>
+          <p className="text-[14px] uppercase tracking-[0.08em] leading-[20px] text-white/40 font-medium mb-1">
+            Purpose
+          </p>
+          <p className="text-[16px] leading-[22px] text-white/70">{entry.whySeeing.purpose}</p>
+        </div>
+
+        <div>
+          <p className="text-[14px] uppercase tracking-[0.08em] leading-[20px] text-white/40 font-medium mb-1">
+            Slot behavior
+          </p>
+          <p className="text-[16px] leading-[22px] text-white/70">{entry.whySeeing.slotBehavior}</p>
+        </div>
+
+        <div>
+          <p className="text-[14px] uppercase tracking-[0.08em] leading-[20px] text-white/40 font-medium mb-1">
+            Interaction
+          </p>
+          <p className="text-[16px] leading-[22px] text-white/70">{entry.whySeeing.interaction}</p>
+        </div>
+
+        {entry.whySeeing.fallback && (
           <div>
             <p className="text-[14px] uppercase tracking-[0.08em] leading-[20px] text-white/40 font-medium mb-1">
-              Signals
+              Fallback
             </p>
-            <div className="flex flex-wrap gap-1.5">
-              {entry.whySeeing.signals.map((signal) => (
-                <span
-                  key={signal}
-                  className="rounded-full bg-white/10 px-2.5 py-1 text-[12px] text-link"
-                >
-                  {signal}
-                </span>
-              ))}
-            </div>
+            <p className="text-[16px] leading-[22px] text-white/70">{entry.whySeeing.fallback}</p>
+          </div>
+        )}
+
+        <div>
+          <p className="text-[14px] uppercase tracking-[0.08em] leading-[20px] text-white/40 font-medium mb-1">
+            Personalization
+          </p>
+          <p className="text-[16px] leading-[22px] text-white/70">{entry.whySeeing.personalization}</p>
+        </div>
+
+        <div>
+          <p className="text-[14px] uppercase tracking-[0.08em] leading-[20px] text-white/40 font-medium mb-1">
+            Ranking objective
+          </p>
+          <p className="text-[16px] leading-[22px] text-white/70">{entry.whySeeing.rankingObjective}</p>
+        </div>
+
+        {entry.whySeeing.contentGuidelines && (
+          <div>
+            <p className="text-[14px] uppercase tracking-[0.08em] leading-[20px] text-white/40 font-medium mb-1">
+              Content guidelines
+            </p>
+            <p className="text-[16px] leading-[22px] text-white/70">{entry.whySeeing.contentGuidelines}</p>
           </div>
         )}
       </div>
