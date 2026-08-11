@@ -135,7 +135,7 @@ const Reveal = ({
 }
 
 // ---------- Horizontal scroll helper ----------
-// Adds wheel-to-horizontal + click-and-drag to a scrollable row.
+// Adds click-and-drag to a scrollable row, plus shift+wheel-to-horizontal.
 // Skips touch (native works) and respects a small drag threshold so taps still register as clicks.
 
 const useHScroll = () => {
@@ -148,6 +148,12 @@ const useHScroll = () => {
       if (el.scrollWidth <= el.clientWidth) return
       const horizontalIntent = Math.abs(e.deltaX) > Math.abs(e.deltaY)
       if (horizontalIntent) return // already horizontal, let native handle
+      // A plain vertical wheel scroll should keep scrolling the page even
+      // when the cursor happens to be sitting over a carousel — it used to
+      // get hijacked into panning the carousel instead, which felt broken
+      // mid-scroll. Only an explicit shift+wheel (the standard "make this
+      // horizontal" modifier) pans it now.
+      if (!e.shiftKey) return
       const max = el.scrollWidth - el.clientWidth
       const atStart = el.scrollLeft <= 0 && e.deltaY < 0
       const atEnd = el.scrollLeft >= max && e.deltaY > 0
@@ -217,6 +223,128 @@ const useHScroll = () => {
     }
   }, [])
   return ref
+}
+
+// Adds click-and-drag vertical scrolling with touch-like momentum to the
+// phone's main feed viewport. A plain mouse drag on a scrollable div has no
+// momentum and stops dead the instant you release, which is what makes
+// steering the phone preview with a desktop mouse feel unlike a real swipe.
+// Skips touch entirely (real touch already gets native momentum scrolling
+// from the browser) and axis-locks to vertical intent so it doesn't hijack
+// horizontal carousels (DeckCarousel, HScroll, etc.) living inside the feed.
+const useVScrollDrag = (ref: React.RefObject<HTMLDivElement | null>) => {
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+
+    let dragging = false
+    let axis: 'none' | 'vertical' | 'horizontal' = 'none'
+    let startX = 0
+    let startY = 0
+    let startTop = 0
+    let lastY = 0
+    let lastTime = 0
+    let velocity = 0
+    let momentumFrame = 0
+
+    const stopMomentum = () => {
+      if (momentumFrame) {
+        cancelAnimationFrame(momentumFrame)
+        momentumFrame = 0
+      }
+    }
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return
+      stopMomentum()
+      dragging = true
+      axis = 'none'
+      startX = e.clientX
+      startY = e.clientY
+      startTop = el.scrollTop
+      lastY = e.clientY
+      lastTime = performance.now()
+      velocity = 0
+    }
+    const onPointerMove = (e: PointerEvent) => {
+      if (!dragging) return
+      const dx = e.clientX - startX
+      const dy = e.clientY - startY
+      if (axis === 'none') {
+        if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return
+        axis = Math.abs(dy) > Math.abs(dx) ? 'vertical' : 'horizontal'
+        if (axis === 'vertical') {
+          try {
+            el.setPointerCapture(e.pointerId)
+          } catch {}
+          el.style.cursor = 'grabbing'
+          el.style.userSelect = 'none'
+        }
+      }
+      if (axis !== 'vertical') return
+      e.preventDefault()
+      el.scrollTop = startTop - dy
+      const now = performance.now()
+      const dt = Math.max(1, now - lastTime)
+      velocity = (e.clientY - lastY) / dt
+      lastY = e.clientY
+      lastTime = now
+    }
+    const finish = (e: PointerEvent) => {
+      if (!dragging) return
+      dragging = false
+      try {
+        if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId)
+      } catch {}
+      el.style.cursor = ''
+      el.style.userSelect = ''
+      if (axis === 'vertical') {
+        // Suppress the click that would otherwise fire on whichever child
+        // we landed on, same as the horizontal-carousel drag pattern.
+        const stop = (ev: Event) => {
+          ev.stopPropagation()
+          ev.preventDefault()
+        }
+        el.addEventListener('click', stop, { capture: true, once: true })
+
+        // Momentum: keep scrolling in the drag direction and decay it like
+        // a touch-scroll fling, instead of stopping dead like a plain
+        // mouse drag would.
+        let v = -velocity * 16
+        const FRICTION = 0.94
+        const step = () => {
+          if (Math.abs(v) < 0.5) {
+            momentumFrame = 0
+            return
+          }
+          el.scrollTop += v
+          v *= FRICTION
+          const atTop = el.scrollTop <= 0
+          const atBottom = el.scrollTop >= el.scrollHeight - el.clientHeight
+          if (atTop || atBottom) {
+            momentumFrame = 0
+            return
+          }
+          momentumFrame = requestAnimationFrame(step)
+        }
+        momentumFrame = requestAnimationFrame(step)
+      }
+      axis = 'none'
+    }
+
+    el.addEventListener('pointerdown', onPointerDown)
+    el.addEventListener('pointermove', onPointerMove)
+    el.addEventListener('pointerup', finish)
+    el.addEventListener('pointercancel', finish)
+
+    return () => {
+      stopMomentum()
+      el.removeEventListener('pointerdown', onPointerDown)
+      el.removeEventListener('pointermove', onPointerMove)
+      el.removeEventListener('pointerup', finish)
+      el.removeEventListener('pointercancel', finish)
+    }
+  }, [ref])
 }
 
 const HScroll = ({
@@ -1492,8 +1620,13 @@ const DeckCarousel = () => {
     // Decide axis once the user has moved enough to declare intent.
     // Horizontal → drive the deck. Vertical → let the page scroll.
     if (s.locked === 'none') {
+      // Bias toward 'horizontal' so a natural diagonal wobble at the start
+      // of a swipe doesn't prematurely kill the deck drag — the lock is a
+      // one-way decision per gesture, so being trigger-happy about
+      // 'vertical' here made the deck feel like it "broke" on whichever
+      // drag direction happened to have a slightly steeper early angle.
       if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
-        s.locked = Math.abs(dy) > Math.abs(dx) ? 'vertical' : 'horizontal'
+        s.locked = Math.abs(dy) > Math.abs(dx) * 1.5 ? 'vertical' : 'horizontal'
       }
     }
     if (s.locked === 'vertical') {
@@ -1559,7 +1692,7 @@ const DeckCarousel = () => {
             (except the Shop button which stops propagation). */}
         <div
           className="absolute"
-          style={{ left: 0, top: 0, width: 370, height: 445, touchAction: 'pan-y', cursor: 'grab' }}
+          style={{ left: 0, top: 0, width: 370, height: 445, touchAction: 'pan-y', cursor: 'grab', userSelect: 'none', WebkitUserSelect: 'none' }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerEnd}
@@ -2425,8 +2558,10 @@ const StreamCards = () => {
     const dy = e.clientY - s.startY
 
     if (s.locked === 'none') {
+      // Bias toward 'horizontal' so a natural diagonal wobble at the start
+      // of a swipe doesn't prematurely kill the drag (see DeckCarousel).
       if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
-        s.locked = Math.abs(dy) > Math.abs(dx) ? 'vertical' : 'horizontal'
+        s.locked = Math.abs(dy) > Math.abs(dx) * 1.5 ? 'vertical' : 'horizontal'
       }
     }
     if (s.locked === 'vertical') {
@@ -3960,6 +4095,9 @@ const PhoneShell = ({
   // tabs (see BottomNav/NAV_TABS) but none of them navigate anywhere.
   const activeTab: TabKey = 'home'
   const setActiveTab = (_k: TabKey) => {}
+  // Desktop mouse drag on the feed viewport otherwise scrolls 1:1 and stops
+  // dead on release; this makes it feel like a real touch swipe instead.
+  useVScrollDrag(scrollRef)
   return (
   <div className="relative">
     {/* Outer bezel — 414×886 in dev mode; in bare/mobile mode the bezel
@@ -4060,10 +4198,10 @@ const PhoneShell = ({
             <div className="skeleton-shimmer" style={{ width: 320, height: 340, borderRadius: 32 }} />
           </div>
           {/* First TileGroup ("New York City") */}
-          <div className="px-4 flex justify-center">
+          <div className="px-4">
             <div
               className="relative overflow-hidden"
-              style={{ width: 370, height: 200, borderRadius: 24, background: 'rgba(129,129,129,0.2)' }}
+              style={{ height: 200, borderRadius: 24, background: 'rgba(129,129,129,0.2)' }}
             >
               <div className="flex flex-col gap-2 px-4 pt-4">
                 <div className="skeleton-shimmer" style={{ width: 160, height: 20, borderRadius: 6 }} />
@@ -9610,6 +9748,28 @@ const CatalogView = ({ entry }: { entry: CatalogEntry }) => {
           </span>
         </div>
 
+        {/* Placeholder CTA — no per-entry Figma node link is stored yet, so
+            this doesn't navigate anywhere. Wire up entry.figmaUrl once the
+            catalog tracks real node IDs per component. */}
+        <button
+          type="button"
+          className="flex items-center justify-center gap-1.5 w-full px-3 py-1.5 rounded-lg bg-white/10 border border-[#CCCCCC]/35 hover:bg-white/15 text-[13px] font-medium leading-[18px] text-white transition"
+        >
+          <svg width="12" height="17" viewBox="0 0 38 57" fill="none" aria-hidden>
+            <path d="M19 28.5a9.5 9.5 0 1 1 9.5-9.5 9.5 9.5 0 0 1-9.5 9.5Z" fill="#1ABCFE" />
+            <path d="M9.5 38A9.5 9.5 0 0 1 9.5 19H19v9.5A9.5 9.5 0 0 1 9.5 38Z" fill="#0ACF83" />
+            <path d="M9.5 19A9.5 9.5 0 0 1 9.5 0H19v19H9.5Z" fill="#FF7262" />
+            <path d="M19 0h9.5a9.5 9.5 0 0 1 0 19H19V0Z" fill="#F24E1E" />
+            <path d="M19 28.5h-9.5a9.5 9.5 0 1 0 9.5 9.5v-9.5Z" fill="#A259FF" />
+          </svg>
+          View in Figma
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            <path d="M15 3h6v6" />
+            <path d="M10 14 21 3" />
+          </svg>
+        </button>
+
         <div>
           <p className="text-[14px] uppercase tracking-[0.08em] leading-[20px] text-white/40 font-medium mb-1">
             Content Type
@@ -9789,9 +9949,9 @@ export default function App() {
   }
   // Prototype sidebar accordion — Home Feed is real (drives the frame
   // list below); States/Cohort are placeholder sections for exploring the
-  // menu's UI/UX before any real state/cohort switching exists. "Add"
-  // appends another fake placeholder section so the empty-state UX can be
-  // tried too.
+  // menu's UI/UX before any real state/cohort switching exists. "Add" is
+  // appended to the end of each list (not its own section) so trying the
+  // add-a-custom-component UI doesn't need a dedicated accordion row.
   const [openAccordions, setOpenAccordions] = useState<Set<string>>(
     () => new Set(['home-feed']),
   )
@@ -9995,11 +10155,17 @@ export default function App() {
         // true position regardless of intermediate transforms.
         const containerRect = sc.getBoundingClientRect()
         const targetRect = target.getBoundingClientRect()
-        // Default offset 12 (target sits 12px below viewport top). Each
-        // frame can override via `offset` to keep previous content
-        // peeking above.
-        const headroom = frame.offset ?? 12
-        const top = sc.scrollTop + (targetRect.top - containerRect.top) - headroom
+        // Account Snapshot (id 1) and Hero Collection (id 2) stay pinned
+        // near the top of the feed — that's where they naturally sit and
+        // there's nothing above them to center against. Every other frame
+        // centers vertically in the viewport instead of just peeking below
+        // the top, so tapping a component type brings it into clear focus.
+        const top =
+          frame.id === 1 || frame.id === 2
+            ? sc.scrollTop + (targetRect.top - containerRect.top) - (frame.offset ?? 12)
+            : sc.scrollTop +
+              (targetRect.top - containerRect.top) -
+              (containerRect.height / 2 - targetRect.height / 2)
         animateScrollTo(sc, top)
       } else {
         animateScrollTo(sc, 0)
@@ -10213,7 +10379,7 @@ export default function App() {
             </button>
           </div>
         </div>
-        <nav className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto">
+        <nav className="flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
           {catalogMode ? (
             <CatalogSidebarList
               selected={selectedCatalogId}
@@ -10226,20 +10392,21 @@ export default function App() {
             // otherwise stack on top of that padding and push dividers
             // off-center between rows. flex-1 min-h-0 lets the Home Feed
             // section below claim the remaining height instead of the
-            // wrapper growing past the nav and pushing States/Cohort/Add
-            // off screen.
+            // wrapper growing past the nav and pushing Cohort off screen.
             <div className="flex flex-col flex-1 min-h-0">
           {/* HOME flow — starting frame is "Home" (frame 1). Frames 2–10
               are connected scroll positions within the same flow and now
-              live inside a collapsible accordion section, alongside
-              placeholder States/Cohort sections + an "Add" affordance for
-              trying out the menu's UI/UX before those are real. When
-              expanded, only this section's frame list scrolls/flexes —
-              States/Cohort/Add stay put below it, always visible. */}
+              live inside a collapsible accordion section, alongside a
+              placeholder States section. Each list (Home Feed frames,
+              States options, Cohort options) ends with an "Add" item —
+              a UI concept only, opens addComponentModalOpen — dashed/muted
+              so it reads as a distinct affordance rather than a real
+              option. When expanded, only this section's frame list
+              scrolls/flexes — Cohort stays put below it, always visible. */}
           <div className={`flex flex-col ${openAccordions.has('home-feed') ? 'flex-1 min-h-0' : 'shrink-0'}`}>
             <button
               onClick={() => toggleAccordion('home-feed')}
-              className="flex items-center justify-between px-3 py-2.5 w-full text-left shrink-0"
+              className="flex items-center justify-between px-4 py-5 w-full text-left shrink-0"
               aria-expanded={openAccordions.has('home-feed')}
             >
               <span
@@ -10253,7 +10420,7 @@ export default function App() {
             </button>
             {openAccordions.has('home-feed') && (
               <div
-                className="flex flex-col gap-2 pt-2 pb-3 flex-1 min-h-0 overflow-y-auto"
+                className="flex flex-col gap-2 pt-3 pb-4 flex-1 min-h-0 overflow-y-auto"
                 // Fade the top/bottom edges instead of a hard clip while
                 // this list scrolls internally.
                 style={{
@@ -10267,7 +10434,7 @@ export default function App() {
                   <button
                     key={f.id}
                     onClick={() => scrollToFrame(f.id)}
-                    className={`text-left p-3 rounded-2xl border flex items-center gap-3 transition shrink-0 ${
+                    className={`text-left p-4 rounded-2xl border flex items-center gap-3 transition shrink-0 ${
                       f.id === active && view === 'feed'
                         ? 'border-white/80 bg-transparent'
                         : 'border-transparent bg-white/5 hover:bg-white/[0.08]'
@@ -10285,16 +10452,29 @@ export default function App() {
                     <p className="text-[14px] font-semibold leading-[20px] text-white">{f.label}</p>
                   </button>
                 ))}
+                {/* "Add" — same "add a custom component" concept as before,
+                    now appended to the end of each list instead of living
+                    as its own accordion row. Dashed border + muted text
+                    distinguishes it from real, selectable list items. */}
+                <button
+                  onClick={() => setAddComponentModalOpen(true)}
+                  className="text-left p-4 rounded-2xl border border-dashed border-white/20 flex items-center gap-3 text-white/40 hover:text-white/60 hover:border-white/30 transition shrink-0"
+                >
+                  <span className="h-4 w-4 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 bg-white/10">
+                    +
+                  </span>
+                  <p className="text-[14px] font-semibold leading-[20px]">Add</p>
+                </button>
               </div>
             )}
             <div className="border-b border-white/10 shrink-0" />
           </div>
 
-          {fakeAccordionSections.map((section) => (
+          {fakeAccordionSections.map((section, sectionIdx) => (
             <div key={section.id} className="flex flex-col shrink-0">
               <button
                 onClick={() => toggleAccordion(section.id)}
-                className="flex items-center justify-between px-3 py-2.5 w-full text-left"
+                className="flex items-center justify-between px-4 py-5 w-full text-left"
                 aria-expanded={openAccordions.has(section.id)}
               >
                 <span
@@ -10307,7 +10487,7 @@ export default function App() {
                 <AccordionChevron open={openAccordions.has(section.id)} />
               </button>
               {openAccordions.has(section.id) && (
-                <div className="flex flex-col gap-2 pb-3">
+                <div className="flex flex-col gap-2 pb-4">
                   {section.options.map((opt) => {
                     const isStates = section.id === 'states'
                     const isActive =
@@ -10329,7 +10509,7 @@ export default function App() {
                         key={opt}
                         onClick={onOptionClick}
                         disabled={isStates && opt === 'Loading' && statesDemo === 'loading'}
-                        className={`text-left px-3 py-2 rounded-lg text-[14px] font-medium leading-[20px] transition ${
+                        className={`text-left px-4 py-3 rounded-lg text-[14px] font-medium leading-[20px] transition ${
                           isActive
                             ? 'text-white bg-white/[0.12]'
                             : 'text-white/70 bg-white/5 hover:bg-white/[0.08]'
@@ -10339,19 +10519,25 @@ export default function App() {
                       </button>
                     )
                   })}
+                  {/* "Add" — appended to the end of this list too, with the
+                      same dashed/muted treatment as the Home Feed list's. */}
+                  <button
+                    onClick={() => setAddComponentModalOpen(true)}
+                    className="text-left px-4 py-3 rounded-lg border border-dashed border-white/15 text-[14px] font-medium leading-[20px] text-white/40 hover:text-white/60 hover:border-white/25 transition"
+                  >
+                    + Add
+                  </button>
                 </div>
               )}
-              <div className="border-b border-white/10" />
+              {/* No divider after the last section (Cohort) — it would
+                  draw a stray line under its final list item since there's
+                  no next section to separate it from. */}
+              {sectionIdx < fakeAccordionSections.length - 1 && (
+                <div className="border-b border-white/10" />
+              )}
             </div>
           ))}
 
-          <button
-            onClick={() => setAddComponentModalOpen(true)}
-            className="flex items-center justify-between px-3 py-2.5 w-full text-left text-white/45 hover:text-white/70 transition shrink-0"
-          >
-            <span className="text-[16px] font-medium leading-[24px]">Add</span>
-            <span className="text-[18px] leading-none">+</span>
-          </button>
             </div>
           )}
 
