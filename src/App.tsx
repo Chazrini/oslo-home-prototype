@@ -257,39 +257,66 @@ const FRAMES: Frame[] = [
   // name; this individual sub-frame keeps its content-screen label
   // ("Account Snapshot") since it's the first screen of the flow.
   { id: 1, label: 'Account Snapshot', anchor: 'top' },
+  // Top stores is the Hero collection (Figma Collection.Hero) — a row of
+  // brand chips above the Deck Collection. It sits right at the top of the
+  // feed (just below Account Snapshot), so jumping to it scrolls back to
+  // the very top rather than a mid-scroll offset.
+  { id: 2, label: 'Hero Collection', anchor: 'top' },
   // Hero scrolls less so the "Pay later at top stores" row above stays
   // partially visible at the top of the viewport, matching the Figma comp.
-  { id: 2, label: 'Deck Collection', anchor: 'hero', offset: 212 },
+  { id: 3, label: 'Deck Collection', anchor: 'hero', offset: 212 },
   // NYC scrolls past most of the card so "shopper favorites" peeks at the
   // top (behind the status bar) and Extra Points becomes the focal point.
-  { id: 3, label: 'List NBA', anchor: 'nyc', offset: -50 },
+  { id: 4, label: 'Square Collection 1', anchor: 'nyc', offset: -50 },
+  // "Extra points" is a Card.NBA.List instance (Figma 15:371).
+  { id: 5, label: 'NBA List', anchor: 'extra-points' },
   // Spring heros sits lower in the viewport so Extra Points' last rows peek
   // at the top and Streaming card peeks at the bottom, matching the Figma comp.
-  { id: 4, label: 'Splash Collection 1', anchor: 'spring-heros', offset: 180 },
+  // "This weeks spring heros" — a generic Card.Collection.Spotlight instance.
+  { id: 6, label: 'Spotlight Collection 1', anchor: 'spring-heros', offset: 180 },
   // Streaming sits below Spring heros bottom peek and above Spring essentials peek.
-  { id: 5, label: 'Fanned Collection', anchor: 'stream', offset: 190 },
+  { id: 7, label: 'Fanned Collection', anchor: 'stream', offset: 190 },
+  // "Spring essentials." is a Card.Collection.Square tile group, same
+  // pattern as Square Collection 1 (frame 4).
+  { id: 8, label: 'Square Collection 2', anchor: 'spring-essentials' },
   // Boutiques scrolls past the tile bodies so the captions peek at the top
   // and the Crypto promo becomes the focal point.
-  { id: 6, label: 'Spotlight NBA - Crypto', anchor: 'boutiques', offset: -115 },
+  // "Boutiques & breakouts" is a Card.Collection.Square tile group.
+  { id: 9, label: 'Square Collection 3', anchor: 'boutiques', offset: -115 },
   // Crypto scrolls so the buttons + coins peek take the top band with more
   // breathing room under the search bar, then Top tec gifts becomes the
   // focal point and Big styles peeks at the bottom.
-  { id: 7, label: 'Splash Collection 2', anchor: 'crypto', offset: -280 },
+  // "Crypto made simple, start with just $1." is a Card.NBA.Spotlight
+  // instance (the NBA-branded Spotlight variant, distinct from the generic
+  // Card.Collection.Spotlight used at frames 6/11/15).
+  { id: 10, label: 'NBA Spotlight - Crypto', anchor: 'crypto', offset: -280 },
   // Tec gifts scrolls past Top tec gifts + Big styles tiles so the PayPal
   // Mastercard promo is the focal point. Big styles tile labels (Pay later
   // + cashback %) peek at the top; See better. Look even better. with its
   // ZENNI / WARBY tiles peeks at the bottom.
-  { id: 8, label: 'Carousel NBA', anchor: 'tec-gifts', offset: -555 },
+  // "Top tec gifts" is another generic Card.Collection.Spotlight instance.
+  { id: 11, label: 'Spotlight Collection 2', anchor: 'tec-gifts', offset: -555 },
+  // "Big styles." is a Card.Collection.Square tile group.
+  { id: 12, label: 'Square Collection 4', anchor: 'big-styles' },
   // PayPal Card scrolls past the Mastercard promo + See better tiles so
   // Refresh your space (IKEA chair) becomes the focal point, with See
   // better tile labels peeking at top and Find your sound (Reverb / Guitar
   // Center / Sam Ash) tiles peeking at the bottom.
-  { id: 9, label: 'Splash Collection 3', anchor: 'paypal-mastercard', offset: -695 },
+  // PayPal Cashback Mastercard promo is a Card.NBA.Carousel instance.
+  { id: 13, label: 'NBA Carousel', anchor: 'paypal-mastercard', offset: -695 },
+  // "See better. Look even better." is a Card.Collection.Square tile group.
+  { id: 14, label: 'Square Collection 5', anchor: 'see-better' },
   // Refresh scrolls past the Refresh your space + Find your sound sections
   // so Track orders to your doorstep becomes the focal point. Find your
   // sound (Reverb / Guitar Center / Sam Ash tiles + labels) fully fills
   // the top band, with Track orders fully visible below.
-  { id: 10, label: 'Spotlight NBA - Tracking', anchor: 'refresh-space', offset: -400 },
+  // "Refresh your space" is a generic Card.Collection.Spotlight instance.
+  { id: 15, label: 'Spotlight Collection 3', anchor: 'refresh-space', offset: -400 },
+  // "Find your sound" is a Card.Collection.Square tile group.
+  { id: 16, label: 'Square Collection 6', anchor: 'find-your-sound' },
+  // "Track orders to your doorstep" is a Card.NBA.Spotlight instance
+  // (Figma 24:2460), the same NBA-branded family as Crypto (frame 10).
+  { id: 17, label: 'NBA Spotlight - Tracking', anchor: 'track-orders' },
 ]
 
 // ---------- Tiny SVG icons ----------
@@ -953,7 +980,7 @@ const TOP_STORES: StoreChip[] = [
 ]
 
 const TopStoresRow = () => (
-  <section className="mt-4">
+  <section id="top-stores" className="mt-4">
     <div className="px-6">
       <SectionTitle blueTop="Pay later" whiteBottom="at top stores" />
     </div>
@@ -9201,23 +9228,22 @@ const CatalogSidebarList = ({
   return (
     <>
       {groups.map((group) => (
-        <div key={group} className="flex flex-col gap-1">
-          <p className="px-3 text-[10px] uppercase tracking-[0.16em] text-white/35 font-semibold">
-            {group}
-          </p>
-          {CATALOG_ENTRIES.filter((e) => e.group === group).map((e) => (
-            <button
-              key={e.id}
-              onClick={() => onSelect(e.id)}
-              className={`text-left px-3 py-1.5 rounded-lg text-[12px] transition ${
-                e.id === selected
-                  ? 'bg-white/10 text-white'
-                  : 'text-white/55 hover:bg-white/5 hover:text-white/80'
-              }`}
-            >
-              {e.name}
-            </button>
-          ))}
+        <div key={group} className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2">
+            {CATALOG_ENTRIES.filter((e) => e.group === group).map((e) => (
+              <button
+                key={e.id}
+                onClick={() => onSelect(e.id)}
+                className={`text-left p-3 rounded-2xl border transition ${
+                  e.id === selected
+                    ? 'border-white/80 bg-transparent'
+                    : 'border-transparent bg-white/5 hover:bg-white/[0.08]'
+                }`}
+              >
+                <p className="text-[14px] font-semibold leading-[20px] text-white">{e.name}</p>
+              </button>
+            ))}
+          </div>
         </div>
       ))}
     </>
@@ -9244,75 +9270,91 @@ const CatalogView = ({ entry }: { entry: CatalogEntry }) => {
   }
   return (
     <div className="flex-1 min-h-0 flex">
-      {/* Center column: preview, "Show code" toggle, and the code panel.
-          Scrolls independently so revealing the code snippet never
-          affects the tray's height or position. */}
-      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center gap-6 py-8">
-        <div className="w-[402px] flex flex-col gap-5">
-          <div className="relative min-h-[300px] max-h-[720px] overflow-y-auto shrink-0">
-            <div className="relative">
-              <NavContext.Provider value={buildCatalogNavApi(entry.navOverrides)}>
-                {entry.render()}
-              </NavContext.Provider>
+      {/* Center column: preview and the code panel. Scrolls independently
+          so revealing the code snippet never affects the tray's height or
+          position. The "Show code" toggle is pinned at bottom-10, level
+          with the sidebar's collapse toggle at the same offset. */}
+      <div className="flex-1 min-h-0 relative flex flex-col">
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center pt-8 pb-24">
+          {/* my-auto (rather than justify-center on the scroll container)
+              centers this group vertically when it fits, but — unlike
+              justify-center — degrades gracefully to top-aligned/scrollable
+              when the content (e.g. a long code panel) is taller than the
+              viewport, instead of clipping the unreachable overflow. */}
+          <div className="my-auto flex flex-col items-center gap-6">
+            <div className="w-[402px] flex flex-col gap-5">
+              <div className="relative min-h-[300px] max-h-[720px] overflow-y-auto shrink-0 flex justify-center">
+                {/* max-w-full + min-w-0 cap this at the 402px viewport so
+                    components with their own internal horizontal scroller
+                    (e.g. AccountSnapshot's HScroll) still get clipped to a
+                    fixed-width viewport instead of growing to fit all their
+                    content — flex items otherwise size to content by
+                    default and can overflow their container. Components
+                    narrower than 402px keep their natural width, so
+                    justify-center still centers them. */}
+                <div className="relative max-w-full min-w-0">
+                  <NavContext.Provider value={buildCatalogNavApi(entry.navOverrides)}>
+                    {entry.render()}
+                  </NavContext.Provider>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div className="flex justify-center">
-            {/* Toggling this ADDS the code panel below rather than
-                replacing anything, so the example stays visible for
-                reference while reading/copying the snippet. */}
-            <button
-              onClick={() => setShowCode((v) => !v)}
-              className={`px-3 py-1.5 rounded-lg text-[11px] uppercase tracking-[0.14em] font-semibold transition ${
-                showCode ? 'bg-white/15 text-white' : 'bg-white/5 text-white/45 hover:text-white/70'
-              }`}
-            >
-              {showCode ? 'Hide code' : 'Show code'}
-            </button>
+            {/* Full-width code panel — spans the whole center column rather
+                than being capped to the 402px preview width. ml-7 (28px)
+                gives the left gap from the nav; the right gap comes from the
+                tray's own m-7 left margin, so mr-0 here avoids doubling it. */}
+            {showCode && (
+              <div className="relative self-stretch ml-7 mr-0">
+                <pre className="font-mono text-[12px] leading-relaxed text-white/85 bg-white/5 border border-[#CCCCCC]/35 rounded-xl p-4 overflow-x-auto overflow-y-auto whitespace-pre-wrap max-h-[1024px]">
+                  {entry.code}
+                </pre>
+                <button
+                  onClick={copyCode}
+                  className="absolute top-3 right-3 px-2.5 py-1 rounded-md text-[14px] font-medium leading-[20px] bg-white/10 hover:bg-white/15 text-white/80 transition"
+                >
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Full-width code panel — spans the whole center column rather
-            than being capped to the 402px preview width. ml-7 (28px)
-            gives the left gap from the nav; the right gap comes from the
-            tray's own m-7 left margin, so mr-0 here avoids doubling it. */}
-        {showCode && (
-          <div className="relative self-stretch ml-7 mr-0">
-            <pre className="font-mono text-[12px] leading-relaxed text-white/85 bg-white/5 border border-[#CCCCCC]/35 rounded-xl p-4 overflow-x-auto overflow-y-auto whitespace-pre-wrap max-h-[1024px]">
-              {entry.code}
-            </pre>
-            <button
-              onClick={copyCode}
-              className="absolute top-3 right-3 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-white/10 hover:bg-white/15 text-white/80 transition"
-            >
-              {copied ? 'Copied' : 'Copy'}
-            </button>
-          </div>
-        )}
+        {/* Toggling this ADDS the code panel above rather than replacing
+            anything, so the example stays visible for reference while
+            reading/copying the snippet. */}
+        <button
+          onClick={() => setShowCode((v) => !v)}
+          className={`absolute bottom-10 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-lg text-[14px] font-medium leading-[20px] transition ${
+            showCode ? 'bg-white/15 text-white' : 'bg-white/5 text-white/45 hover:text-white/70'
+          }`}
+        >
+          {showCode ? 'Hide code' : 'Show code'}
+        </button>
       </div>
 
       {/* Always-present tray — mirrors the Feed Simulator's "Why am I
           seeing this?" side panel, but with illustrative static copy
           since this prototype has no live ranking engine. Full-height,
           with a constant 28px margin on every side. */}
-      <div className="hidden lg:flex flex-col gap-4 w-[320px] shrink-0 self-stretch m-7 rounded-2xl bg-white/5 border border-[#CCCCCC]/35 p-4 overflow-y-auto">
-        <p className="text-[13px] font-semibold text-white">Why am I seeing this?</p>
+      <div className="hidden lg:flex flex-col gap-5 w-[320px] shrink-0 self-stretch m-7 rounded-2xl bg-white/5 border border-[#CCCCCC]/35 p-5 overflow-y-auto">
+        <p className="text-[20px] font-medium leading-[32px] text-white">Why am I seeing this?</p>
         <div>
-          <p className="text-[11px] uppercase tracking-[0.14em] text-white/40 font-semibold mb-1">
+          <p className="text-[14px] uppercase tracking-[0.08em] leading-[20px] text-white/40 font-medium mb-1">
             Explanation
           </p>
-          <p className="text-[13px] text-white/70 leading-relaxed">{entry.whySeeing.explanation}</p>
+          <p className="text-[14px] leading-[20px] text-white/70">{entry.whySeeing.explanation}</p>
         </div>
         {entry.whySeeing.signals.length > 0 && (
           <div>
-            <p className="text-[11px] uppercase tracking-[0.14em] text-white/40 font-semibold mb-1">
+            <p className="text-[14px] uppercase tracking-[0.08em] leading-[20px] text-white/40 font-medium mb-1">
               Signals
             </p>
             <div className="flex flex-wrap gap-1.5">
               {entry.whySeeing.signals.map((signal) => (
                 <span
                   key={signal}
-                  className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] text-link"
+                  className="rounded-full bg-white/10 px-2.5 py-1 text-[12px] text-link"
                 >
                   {signal}
                 </span>
@@ -9656,12 +9698,12 @@ export default function App() {
               />
             </svg>
           </div>
-          <h1 className="text-xl font-bold">Oslo Home Feed Simulator</h1>
+          <h1 className="font-display text-[32px] font-black leading-[32px] tracking-[-1px]">Oslo Home Feed Simulator</h1>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className="flex items-center gap-1.5 pl-3 pr-3.5 py-2 rounded-full bg-white/10 hover:bg-white/15 text-[13px] font-semibold transition"
+            className="flex items-center gap-1.5 pl-3 pr-3.5 py-2 rounded-full bg-white/10 border border-[#CCCCCC]/35 hover:bg-white/15 text-[14px] font-medium leading-[20px] transition"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
@@ -9671,7 +9713,7 @@ export default function App() {
           </button>
           <button
             type="button"
-            className="flex items-center gap-1.5 pl-3 pr-3.5 py-2 rounded-full bg-white/10 hover:bg-white/15 text-[13px] font-semibold transition"
+            className="flex items-center gap-1.5 pl-3 pr-3.5 py-2 rounded-full bg-white/10 border border-[#CCCCCC]/35 hover:bg-white/15 text-[14px] font-medium leading-[20px] transition"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -9684,7 +9726,7 @@ export default function App() {
       </header>
 
       <div className="flex-1 min-h-0 flex relative">
-      {/* Sidebar collapse/expand toggle — anchored to the top-left of the
+      {/* Sidebar collapse/expand toggle — anchored to the bottom-left of the
           row below the app bar, always visible (mirrors the panel-toggle
           pattern from Claude Code's UI). Below the lg breakpoint the
           sidebar is hidden, so the toggle is hidden too. */}
@@ -9693,31 +9735,33 @@ export default function App() {
         onClick={() => setSidebarOpen((o) => !o)}
         aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
         aria-pressed={sidebarOpen}
-        className="hidden lg:flex absolute top-4 left-4 z-50 h-8 w-8 items-center justify-center rounded-md text-white/70 hover:text-white hover:bg-white/[0.08] transition"
+        className="hidden lg:flex absolute bottom-10 left-10 z-50 h-[38px] w-[38px] items-center justify-center rounded-full border border-[#CCCCCC]/35 text-white/70 hover:text-white hover:bg-white/[0.08] transition"
       >
         {/* Panel icon — rounded rect with a vertical divider at ~1/3 */}
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+        <svg width="19" height="19" viewBox="0 0 16 16" fill="none" aria-hidden>
           <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
           <line x1="6.25" y1="3.5" x2="6.25" y2="12.5" stroke="currentColor" strokeWidth="1.2" />
         </svg>
       </button>
       <aside
-        // Width animates between 280 (open) and 0 (collapsed). overflow
+        // Width animates between 340 (open) and 0 (collapsed). overflow
         // hidden clips the inner content as it collapses. The contents
         // also fade so they don't visually punch through during the
-        // transition.
-        className="hidden lg:flex shrink-0 flex-col gap-6 border-r border-[#CCCCCC]/35 overflow-hidden"
+        // transition. Floats as its own rounded panel (matching the
+        // "Why am I seeing this?" tray) with a 28px margin, rather than
+        // a flush edge-to-edge column.
+        className="hidden lg:flex shrink-0 flex-col gap-6 rounded-2xl bg-white/5 border border-[#CCCCCC]/35 overflow-hidden"
         style={{
-          width: sidebarOpen ? 280 : 0,
-          // Extra top padding (3.5rem ≈ 56px) clears the 32×32 toggle
-          // button that sits at top:16 / left:16 — without this the
-          // Prototype/Catalog switch overlaps the button.
-          padding: sidebarOpen ? '3.5rem 2rem 2rem 2rem' : '3.5rem 0 2rem 0',
-          borderRightWidth: sidebarOpen ? 1 : 0,
+          width: sidebarOpen ? 340 : 0,
+          margin: sidebarOpen ? '1.75rem 0 1.75rem 1.75rem' : '1.75rem 0 1.75rem 0',
+          // Extra bottom padding (3.5rem ≈ 56px) clears the 32×32 collapse
+          // toggle button that sits at bottom:40 / left:40 — without this
+          // the sidebar's own content can scroll under the button.
+          padding: sidebarOpen ? '1.5rem 1.5rem 3.5rem 1.5rem' : '1.5rem 0 3.5rem 0',
           opacity: sidebarOpen ? 1 : 0,
           pointerEvents: sidebarOpen ? 'auto' : 'none',
           transition:
-            'width 280ms cubic-bezier(0.32, 0.72, 0, 1), padding 280ms cubic-bezier(0.32, 0.72, 0, 1), opacity 220ms ease, border-right-width 280ms cubic-bezier(0.32, 0.72, 0, 1)',
+            'width 280ms cubic-bezier(0.32, 0.72, 0, 1), margin 280ms cubic-bezier(0.32, 0.72, 0, 1), padding 280ms cubic-bezier(0.32, 0.72, 0, 1), opacity 220ms ease',
         }}
         aria-hidden={!sidebarOpen}
       >
@@ -9725,19 +9769,21 @@ export default function App() {
           {/* Prototype / Catalog mode switch — Catalog mode breaks out of
               the phone feed to browse cataloged components individually
               with docs + a copyable code snippet, for front-end handoff. */}
-          <div className="flex gap-1 p-1 rounded-lg bg-white/5">
+          <div className="flex items-center gap-0.5 rounded-full border border-[#CCCCCC]/35 p-1">
             <button
               onClick={() => setCatalogMode(false)}
-              className={`flex-1 px-2 py-1.5 rounded-md text-[11px] uppercase tracking-[0.14em] font-semibold transition ${
-                !catalogMode ? 'bg-white/15 text-white' : 'text-white/45 hover:text-white/70'
+              aria-pressed={!catalogMode}
+              className={`flex-1 px-2 py-1.5 text-[14px] font-medium leading-[20px] whitespace-nowrap transition rounded-full ${
+                !catalogMode ? 'bg-white text-black' : 'text-white/45 hover:text-white/70'
               }`}
             >
               Prototype
             </button>
             <button
               onClick={() => setCatalogMode(true)}
-              className={`flex-1 px-2 py-1.5 rounded-md text-[11px] uppercase tracking-[0.14em] font-semibold transition ${
-                catalogMode ? 'bg-white/15 text-white' : 'text-white/45 hover:text-white/70'
+              aria-pressed={catalogMode}
+              className={`flex-1 px-2 py-1.5 text-[14px] font-medium leading-[20px] whitespace-nowrap transition rounded-full ${
+                catalogMode ? 'bg-white text-black' : 'text-white/45 hover:text-white/70'
               }`}
             >
               Catalog
@@ -9755,40 +9801,33 @@ export default function App() {
           {/* HOME flow — starting frame is "Home" (frame 1). Frames 2–10
               are connected scroll positions within the same flow and
               live as nested steps below the flow header. */}
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-2">
             <button
               onClick={() => scrollToFrame(1)}
-              className={`text-left px-3 py-2 rounded-lg text-[11px] uppercase tracking-[0.16em] font-semibold flex items-center gap-3 transition w-full ${
+              className={`text-left px-3 py-2 rounded-lg text-[16px] font-medium leading-[24px] transition w-full ${
                 view === 'feed'
                   ? 'text-white'
                   : 'text-white/45 hover:text-white/70'
               }`}
               aria-label="Open Home flow"
             >
-              <span
-                className={`h-5 w-5 rounded-md flex items-center justify-center text-[10px] font-bold ${
-                  view === 'feed' ? 'bg-link text-ink-900' : 'bg-white/10 text-white/80'
-                }`}
-              >
-                H
-              </span>
-              Home
+              Home Feed
             </button>
-            {/* Frames within the Home flow — indented to read as
-                connected steps of the same flow. */}
-            <div className="flex flex-col gap-1 pl-3 ml-3 border-l border-[#CCCCCC]/35">
+            {/* Frames within the Home flow — styled as cards to match the
+                Catalog tab's component list. */}
+            <div className="flex flex-col gap-2">
               {FRAMES.map((f) => (
                 <button
                   key={f.id}
                   onClick={() => scrollToFrame(f.id)}
-                  className={`text-left px-3 py-1.5 rounded-lg text-[12px] flex items-center gap-3 transition ${
+                  className={`text-left p-3 rounded-2xl border flex items-center gap-3 transition ${
                     f.id === active && view === 'feed'
-                      ? 'bg-white/10 text-white'
-                      : 'text-white/55 hover:bg-white/5 hover:text-white/80'
+                      ? 'border-white/80 bg-transparent'
+                      : 'border-transparent bg-white/5 hover:bg-white/[0.08]'
                   }`}
                 >
                   <span
-                    className={`h-4 w-4 rounded-full flex items-center justify-center text-[9px] font-semibold ${
+                    className={`h-4 w-4 rounded-full flex items-center justify-center text-[9px] font-semibold shrink-0 ${
                       f.id === active && view === 'feed'
                         ? 'bg-link text-ink-900'
                         : 'bg-white/10 text-white/70'
@@ -9796,7 +9835,7 @@ export default function App() {
                   >
                     {f.id}
                   </span>
-                  {f.label}
+                  <p className="text-[14px] font-semibold leading-[20px] text-white">{f.label}</p>
                 </button>
               ))}
             </div>
@@ -9805,11 +9844,6 @@ export default function App() {
           )}
 
         </nav>
-        <div className="mt-auto text-[11px] text-white/40 leading-relaxed">
-          {catalogMode
-            ? 'Pick a component above. Show code to grab a standalone snippet alongside the preview.'
-            : 'Pick a flow above. Inside Home, use the arrows, click a dot, or tap a frame to jump between connected steps. ← / → also work.'}
-        </div>
       </aside>
 
       <main
