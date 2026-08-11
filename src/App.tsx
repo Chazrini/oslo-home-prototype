@@ -8671,6 +8671,24 @@ type CatalogEntry = {
   render: () => React.ReactNode
 }
 
+// Team modal — Figma: "Product + Design Team" (node 4245:22560). Headshots
+// live in public/images/team (provided by the user), sized to match the
+// Figma circular avatar treatment.
+type TeamMember = {
+  name: string
+  role: string
+  photo: string
+  slackUrl?: string
+}
+const TEAM_MEMBERS: TeamMember[] = [
+  { name: 'Yashika Shah', role: 'Director, PM', photo: '/images/team/yashika-shah.png', slackUrl: 'https://paypal.enterprise.slack.com/team/U09BYRSEWQ4' },
+  { name: 'Chaz Rini', role: 'Principal Designer', photo: '/images/team/chaz-rini.png', slackUrl: 'https://paypal.enterprise.slack.com/team/U08S19VEF1T' },
+  { name: 'Ryllis Lyle', role: 'Sr Content Designer', photo: '/images/team/ryllis-lyle.png', slackUrl: 'https://paypal.enterprise.slack.com/team/W017B53DP4M' },
+  { name: 'Jamison Vrabel', role: 'Director Program Management', photo: '/images/team/jamison-vrabel.png' },
+  { name: 'Ben Downard', role: 'Designer', photo: '/images/team/ben-downard.png' },
+  { name: 'Angie Yuanmalai', role: 'Designer', photo: '/images/team/angie-yuanmalai.png' },
+]
+
 const CATALOG_ENTRIES: CatalogEntry[] = [
   {
     id: 'account-snapshot',
@@ -9739,6 +9757,9 @@ export default function App() {
   const [addComponentModalOpen, setAddComponentModalOpen] = useState(false)
   const [addComponentCode, setAddComponentCode] = useState('')
   const [addComponentSlot, setAddComponentSlot] = useState<number>(FRAMES[0]?.id ?? 1)
+  // Top app bar "Team" CTA — opens a modal listing the Product + Design
+  // team (Figma node 4245:22560).
+  const [teamModalOpen, setTeamModalOpen] = useState(false)
   // States accordion demo. "Loading" shows a skeleton-shimmer overlay for a
   // couple seconds then reverts to Default on its own; "Error" shows the
   // Figma "Error.Load" connection-error screen and stays until the user
@@ -10039,6 +10060,19 @@ export default function App() {
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={() => setTeamModalOpen(true)}
+            className="flex items-center gap-1.5 pl-3 pr-3.5 py-2 rounded-full bg-white/10 border border-[#CCCCCC]/35 hover:bg-white/15 text-[14px] font-medium leading-[20px] transition"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            Team
+          </button>
+          <button
+            type="button"
             className="flex items-center gap-1.5 pl-3 pr-3.5 py-2 rounded-full bg-white/10 border border-[#CCCCCC]/35 hover:bg-white/15 text-[14px] font-medium leading-[20px] transition"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -10302,6 +10336,92 @@ export default function App() {
           </>
         )}
       </main>
+
+      {/* Team modal — Figma: "Product + Design Team" (node 4245:22560).
+          Read-only; lists the Product + Design team with initials avatars
+          (see TEAM_MEMBERS comment re: no real headshots). */}
+      {teamModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          style={{ backdropFilter: 'blur(4px)' }}
+          onClick={() => setTeamModalOpen(false)}
+        >
+          <div
+            className="w-[720px] max-w-[calc(100vw-2rem)] flex flex-col gap-6 rounded-2xl bg-[radial-gradient(circle_at_20%_0%,#141d33_0%,#080c1a_55%,#04050f_100%)] border border-[#CCCCCC]/15 p-9 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-[18px] font-semibold leading-[24px] text-white">Product + Design Team</p>
+              <button
+                onClick={() => setTeamModalOpen(false)}
+                aria-label="Close"
+                className="h-7 w-7 rounded-full flex items-center justify-center text-white/45 hover:text-white hover:bg-white/10 transition"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-x-10 gap-y-12">
+              {TEAM_MEMBERS.map((m) => (
+                <div key={m.name} className="flex flex-col gap-2.5">
+                  <img
+                    src={m.photo}
+                    alt={m.name}
+                    width={116}
+                    height={116}
+                    className="rounded-full"
+                  />
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-col">
+                      <p className="text-[14px] font-medium leading-[20px] text-white">{m.name}</p>
+                      <p className="text-[13px] leading-[18px] text-white/45">{m.role}</p>
+                    </div>
+                    {m.slackUrl ? (
+                      <a
+                        href={m.slackUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 self-start px-2.5 py-1.5 rounded-full bg-white/10 border border-[#CCCCCC]/35 hover:bg-white/15 text-[12px] font-medium leading-[16px] text-white transition"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 122.8 122.8" aria-hidden>
+                          <path d="M25.8 77.6c0 7.1-5.8 12.9-12.9 12.9S0 84.7 0 77.6s5.8-12.9 12.9-12.9h12.9v12.9z" fill="#e01e5a" />
+                          <path d="M32.3 77.6c0-7.1 5.8-12.9 12.9-12.9s12.9 5.8 12.9 12.9v32.3c0 7.1-5.8 12.9-12.9 12.9s-12.9-5.8-12.9-12.9V77.6z" fill="#e01e5a" />
+                          <path d="M45.2 25.8c-7.1 0-12.9-5.8-12.9-12.9S38.1 0 45.2 0s12.9 5.8 12.9 12.9v12.9H45.2z" fill="#36c5f0" />
+                          <path d="M45.2 32.3c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9H12.9C5.8 58.1 0 52.3 0 45.2s5.8-12.9 12.9-12.9h32.3z" fill="#36c5f0" />
+                          <path d="M97 45.2c0-7.1 5.8-12.9 12.9-12.9s12.9 5.8 12.9 12.9-5.8 12.9-12.9 12.9H97V45.2z" fill="#2eb67d" />
+                          <path d="M90.5 45.2c0 7.1-5.8 12.9-12.9 12.9s-12.9-5.8-12.9-12.9V12.9C64.7 5.8 70.5 0 77.6 0s12.9 5.8 12.9 12.9v32.3z" fill="#2eb67d" />
+                          <path d="M77.6 97c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9-12.9-5.8-12.9-12.9V97h12.9z" fill="#ecb22e" />
+                          <path d="M77.6 90.5c-7.1 0-12.9-5.8-12.9-12.9s5.8-12.9 12.9-12.9h32.3c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9H77.6z" fill="#ecb22e" />
+                        </svg>
+                        Contact
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1.5 self-start px-2.5 py-1.5 rounded-full bg-white/10 border border-[#CCCCCC]/35 hover:bg-white/15 text-[12px] font-medium leading-[16px] text-white transition"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 122.8 122.8" aria-hidden>
+                          <path d="M25.8 77.6c0 7.1-5.8 12.9-12.9 12.9S0 84.7 0 77.6s5.8-12.9 12.9-12.9h12.9v12.9z" fill="#e01e5a" />
+                          <path d="M32.3 77.6c0-7.1 5.8-12.9 12.9-12.9s12.9 5.8 12.9 12.9v32.3c0 7.1-5.8 12.9-12.9 12.9s-12.9-5.8-12.9-12.9V77.6z" fill="#e01e5a" />
+                          <path d="M45.2 25.8c-7.1 0-12.9-5.8-12.9-12.9S38.1 0 45.2 0s12.9 5.8 12.9 12.9v12.9H45.2z" fill="#36c5f0" />
+                          <path d="M45.2 32.3c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9H12.9C5.8 58.1 0 52.3 0 45.2s5.8-12.9 12.9-12.9h32.3z" fill="#36c5f0" />
+                          <path d="M97 45.2c0-7.1 5.8-12.9 12.9-12.9s12.9 5.8 12.9 12.9-5.8 12.9-12.9 12.9H97V45.2z" fill="#2eb67d" />
+                          <path d="M90.5 45.2c0 7.1-5.8 12.9-12.9 12.9s-12.9-5.8-12.9-12.9V12.9C64.7 5.8 70.5 0 77.6 0s12.9 5.8 12.9 12.9v32.3z" fill="#2eb67d" />
+                          <path d="M77.6 97c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9-12.9-5.8-12.9-12.9V97h12.9z" fill="#ecb22e" />
+                          <path d="M77.6 90.5c-7.1 0-12.9-5.8-12.9-12.9s5.8-12.9 12.9-12.9h32.3c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9H77.6z" fill="#ecb22e" />
+                        </svg>
+                        Contact
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add-component modal — UI concept only. Shows what wiring a custom
           component into the Home Feed could look like (paste code, pick a
