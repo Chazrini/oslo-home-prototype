@@ -9729,6 +9729,64 @@ export default function App() {
   const [selectedCatalogId, setSelectedCatalogId] = useState<string>(
     CATALOG_ENTRIES[0].id,
   )
+  // Prototype preview scale — the phone bezel in the main panel is a fixed
+  // 414×886, which gets cut off on smaller laptop screens. A button pinned
+  // to the browser window's bottom-right corner opens a slider popover to
+  // shrink/grow the preview. Persisted like sidebarOpen/catalogMode.
+  const [previewScale, setPreviewScale] = useState<number>(() => {
+    if (typeof window === 'undefined') return 1
+    try {
+      const v = window.localStorage.getItem('hfpp:previewScale')
+      const n = v == null ? 1 : parseFloat(v)
+      return Number.isFinite(n) ? Math.min(1, Math.max(0.25, n)) : 1
+    } catch {
+      return 1
+    }
+  })
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('hfpp:previewScale', String(previewScale))
+    } catch {
+      /* private mode / disabled storage — silently ignore */
+    }
+  }, [previewScale])
+  const PREVIEW_SCALE_MIN = 0.25
+  const PREVIEW_SCALE_MAX = 1
+  const [scalePopoverOpen, setScalePopoverOpen] = useState(false)
+  const scalePopoverRef = useRef<HTMLDivElement | null>(null)
+  const scaleTrackRef = useRef<HTMLDivElement | null>(null)
+  const scaleSliderDraggingRef = useRef(false)
+  useEffect(() => {
+    if (!scalePopoverOpen) return
+    const onOutside = (e: PointerEvent) => {
+      if (!scalePopoverRef.current?.contains(e.target as Node)) {
+        setScalePopoverOpen(false)
+      }
+    }
+    window.addEventListener('pointerdown', onOutside)
+    return () => window.removeEventListener('pointerdown', onOutside)
+  }, [scalePopoverOpen])
+  const updateScaleFromClientX = (clientX: number) => {
+    const track = scaleTrackRef.current
+    if (!track) return
+    const rect = track.getBoundingClientRect()
+    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
+    setPreviewScale(PREVIEW_SCALE_MIN + ratio * (PREVIEW_SCALE_MAX - PREVIEW_SCALE_MIN))
+  }
+  const onScaleSliderPointerDown = (e: React.PointerEvent) => {
+    scaleSliderDraggingRef.current = true
+    try {
+      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    } catch {}
+    updateScaleFromClientX(e.clientX)
+  }
+  const onScaleSliderPointerMove = (e: React.PointerEvent) => {
+    if (!scaleSliderDraggingRef.current) return
+    updateScaleFromClientX(e.clientX)
+  }
+  const onScaleSliderPointerUp = () => {
+    scaleSliderDraggingRef.current = false
+  }
   // Prototype sidebar accordion — Home Feed is real (drives the frame
   // list below); States/Cohort are placeholder sections for exploring the
   // menu's UI/UX before any real state/cohort switching exists. "Add"
@@ -10309,7 +10367,7 @@ export default function App() {
         className={
           catalogMode
             ? 'flex-1 min-h-0 flex'
-            : 'flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-start gap-6 py-8 px-4'
+            : 'flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center gap-6 py-8 px-4'
         }
       >
         {catalogMode ? (
@@ -10322,20 +10380,90 @@ export default function App() {
         ) : (
           <>
         <ScrollRootContext.Provider value={scrollRef}>
-          <PhoneShell
-            scrollRef={scrollRef}
-            displayView={displayView}
-            phase={phase}
-            loading={statesDemo === 'loading'}
-            error={statesDemo === 'error'}
-            onErrorRetry={() => setStatesDemo('default')}
+          <div
+            className="relative shrink-0"
+            style={{ width: 414 * previewScale, height: 886 * previewScale }}
           >
-            <Feed />
-          </PhoneShell>
+            <div
+              style={{
+                width: 414,
+                height: 886,
+                transform: `scale(${previewScale})`,
+                transformOrigin: 'top left',
+              }}
+            >
+              <PhoneShell
+                scrollRef={scrollRef}
+                displayView={displayView}
+                phase={phase}
+                loading={statesDemo === 'loading'}
+                error={statesDemo === 'error'}
+                onErrorRetry={() => setStatesDemo('default')}
+              >
+                <Feed />
+              </PhoneShell>
+            </div>
+          </div>
         </ScrollRootContext.Provider>
           </>
         )}
       </main>
+
+      {/* Preview scale control — pinned to the browser window's corner
+          (not the phone) so it stays reachable regardless of how small the
+          preview has been shrunk. Tap to open a slider popover. Only
+          relevant in Prototype mode, where the phone preview renders. */}
+      {!catalogMode && (
+      <div ref={scalePopoverRef} className="fixed bottom-5 right-5 z-40">
+        {scalePopoverOpen && (
+          <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 flex items-center gap-4 rounded-full bg-[#0c1226] border border-[#CCCCCC]/20 px-5 py-3 shadow-2xl whitespace-nowrap">
+            <div
+              ref={scaleTrackRef}
+              onPointerDown={onScaleSliderPointerDown}
+              onPointerMove={onScaleSliderPointerMove}
+              onPointerUp={onScaleSliderPointerUp}
+              onPointerCancel={onScaleSliderPointerUp}
+              role="slider"
+              aria-label="Prototype preview size"
+              aria-valuemin={PREVIEW_SCALE_MIN * 100}
+              aria-valuemax={PREVIEW_SCALE_MAX * 100}
+              aria-valuenow={Math.round(previewScale * 100)}
+              className="relative w-40 h-1.5 rounded-full bg-white/15 cursor-pointer touch-none"
+            >
+              <div
+                className="absolute inset-y-0 left-0 rounded-full bg-white/70 pointer-events-none"
+                style={{
+                  width: `${((previewScale - PREVIEW_SCALE_MIN) / (PREVIEW_SCALE_MAX - PREVIEW_SCALE_MIN)) * 100}%`,
+                }}
+              />
+              <div
+                className="absolute top-1/2 h-5 w-5 rounded-full bg-white shadow pointer-events-none"
+                style={{
+                  left: `${((previewScale - PREVIEW_SCALE_MIN) / (PREVIEW_SCALE_MAX - PREVIEW_SCALE_MIN)) * 100}%`,
+                  transform: 'translate(-50%, -50%)',
+                }}
+              />
+            </div>
+            <span className="text-[14px] font-medium leading-[20px] text-white tabular-nums w-10 text-right">
+              {Math.round(previewScale * 100)}%
+            </span>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setScalePopoverOpen((v) => !v)}
+          aria-label="Adjust prototype preview size"
+          className="h-11 w-11 rounded-full bg-white/10 border border-[#CCCCCC]/35 hover:bg-white/20 flex items-center justify-center transition"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M21 15v6h-6" />
+            <path d="M3 9V3h6" />
+            <path d="M21 3 14 10" />
+            <path d="M3 21l7-7" />
+          </svg>
+        </button>
+      </div>
+      )}
 
       {/* Team modal — Figma: "Product + Design Team" (node 4245:22560).
           Read-only; lists the Product + Design team with initials avatars
