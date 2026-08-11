@@ -9355,6 +9355,20 @@ const MC_DESIGNS = [
   },
 ]
 
+const AccordionChevron = ({ open, active = open }: { open: boolean; active?: boolean }) => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    className={`shrink-0 transition-all duration-200 ${open ? 'rotate-180' : ''} ${
+      active ? 'text-white' : 'text-white/45'
+    }`}
+  >
+    <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
 const CatalogSidebarList = ({
   selected,
   onSelect,
@@ -9601,6 +9615,34 @@ export default function App() {
   const [selectedCatalogId, setSelectedCatalogId] = useState<string>(
     CATALOG_ENTRIES[0].id,
   )
+  // Prototype sidebar accordion — Home Feed is real (drives the frame
+  // list below); States/Cohort are placeholder sections for exploring the
+  // menu's UI/UX before any real state/cohort switching exists. "Add"
+  // appends another fake placeholder section so the empty-state UX can be
+  // tried too.
+  const [openAccordions, setOpenAccordions] = useState<Set<string>>(
+    () => new Set(['home-feed']),
+  )
+  const toggleAccordion = (id: string) => {
+    setOpenAccordions((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  const [fakeAccordionSections] = useState<
+    { id: string; name: string; options: string[] }[]
+  >([
+    { id: 'states', name: 'States', options: ['Default', 'Empty', 'Loading', 'Error'] },
+    { id: 'cohort', name: 'Cohort', options: ['New user', 'Existing user', 'High value'] },
+  ])
+  // "Add" is a UI concept only — it shows what adding a custom component to
+  // the Home Feed could look like (paste code, pick a slot), but submitting
+  // it doesn't actually touch the feed.
+  const [addComponentModalOpen, setAddComponentModalOpen] = useState(false)
+  const [addComponentCode, setAddComponentCode] = useState('')
+  const [addComponentSlot, setAddComponentSlot] = useState<number>(FRAMES[0]?.id ?? 1)
   // Mobile / "bare" presentation mode. Set ?mobile=1 (or ?bare=1) in
   // the URL to strip the prototype chrome — sidebar, toggle, prototype
   // nav, phone bezel, dynamic island, gradient bg — so the 402×874
@@ -9951,7 +9993,7 @@ export default function App() {
         }}
         aria-hidden={!sidebarOpen}
       >
-        <div>
+        <div className="shrink-0">
           {/* Prototype / Catalog mode switch — Catalog mode breaks out of
               the phone feed to browse cataloged components individually
               with docs + a copyable code snippet, for front-end handoff. */}
@@ -9976,57 +10018,123 @@ export default function App() {
             </button>
           </div>
         </div>
-        <nav className="flex flex-col gap-3">
+        <nav className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto">
           {catalogMode ? (
             <CatalogSidebarList
               selected={selectedCatalogId}
               onSelect={setSelectedCatalogId}
             />
           ) : (
-            <>
+            // Wrapped in a single gap-less flex column so the section
+            // dividers below sit flush against their neighbors' own
+            // py-2.5 button padding — the parent <nav>'s gap-3 would
+            // otherwise stack on top of that padding and push dividers
+            // off-center between rows. flex-1 min-h-0 lets the Home Feed
+            // section below claim the remaining height instead of the
+            // wrapper growing past the nav and pushing States/Cohort/Add
+            // off screen.
+            <div className="flex flex-col flex-1 min-h-0">
           {/* HOME flow — starting frame is "Home" (frame 1). Frames 2–10
-              are connected scroll positions within the same flow and
-              live as nested steps below the flow header. */}
-          <div className="flex flex-col gap-2">
+              are connected scroll positions within the same flow and now
+              live inside a collapsible accordion section, alongside
+              placeholder States/Cohort sections + an "Add" affordance for
+              trying out the menu's UI/UX before those are real. When
+              expanded, only this section's frame list scrolls/flexes —
+              States/Cohort/Add stay put below it, always visible. */}
+          <div className={`flex flex-col ${openAccordions.has('home-feed') ? 'flex-1 min-h-0' : 'shrink-0'}`}>
             <button
-              onClick={() => scrollToFrame(1)}
-              className={`text-left px-3 py-2 rounded-lg text-[16px] font-medium leading-[24px] transition w-full ${
-                view === 'feed'
-                  ? 'text-white'
-                  : 'text-white/45 hover:text-white/70'
-              }`}
-              aria-label="Open Home flow"
+              onClick={() => toggleAccordion('home-feed')}
+              className="flex items-center justify-between px-3 py-2.5 w-full text-left shrink-0"
+              aria-expanded={openAccordions.has('home-feed')}
             >
-              Home Feed
+              <span
+                className={`text-[16px] font-semibold leading-[24px] transition ${
+                  openAccordions.has('home-feed') || view === 'feed' ? 'text-white' : 'text-white/45'
+                }`}
+              >
+                Home Feed
+              </span>
+              <AccordionChevron open={openAccordions.has('home-feed')} active={openAccordions.has('home-feed') || view === 'feed'} />
             </button>
-            {/* Frames within the Home flow — styled as cards to match the
-                Catalog tab's component list. */}
-            <div className="flex flex-col gap-2">
-              {FRAMES.map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => scrollToFrame(f.id)}
-                  className={`text-left p-3 rounded-2xl border flex items-center gap-3 transition ${
-                    f.id === active && view === 'feed'
-                      ? 'border-white/80 bg-transparent'
-                      : 'border-transparent bg-white/5 hover:bg-white/[0.08]'
-                  }`}
-                >
-                  <span
-                    className={`h-4 w-4 rounded-full flex items-center justify-center text-[9px] font-semibold shrink-0 ${
+            {openAccordions.has('home-feed') && (
+              <div
+                className="flex flex-col gap-2 pt-2 pb-3 flex-1 min-h-0 overflow-y-auto"
+                // Fade the top/bottom edges instead of a hard clip while
+                // this list scrolls internally.
+                style={{
+                  WebkitMaskImage:
+                    'linear-gradient(to bottom, transparent 0, black 16px, black calc(100% - 16px), transparent 100%)',
+                  maskImage:
+                    'linear-gradient(to bottom, transparent 0, black 16px, black calc(100% - 16px), transparent 100%)',
+                }}
+              >
+                {FRAMES.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => scrollToFrame(f.id)}
+                    className={`text-left p-3 rounded-2xl border flex items-center gap-3 transition shrink-0 ${
                       f.id === active && view === 'feed'
-                        ? 'bg-link text-ink-900'
-                        : 'bg-white/10 text-white/70'
+                        ? 'border-white/80 bg-transparent'
+                        : 'border-transparent bg-white/5 hover:bg-white/[0.08]'
                     }`}
                   >
-                    {f.id}
-                  </span>
-                  <p className="text-[14px] font-semibold leading-[20px] text-white">{f.label}</p>
-                </button>
-              ))}
-            </div>
+                    <span
+                      className={`h-4 w-4 rounded-full flex items-center justify-center text-[9px] font-semibold shrink-0 ${
+                        f.id === active && view === 'feed'
+                          ? 'bg-link text-ink-900'
+                          : 'bg-white/10 text-white/70'
+                      }`}
+                    >
+                      {f.id}
+                    </span>
+                    <p className="text-[14px] font-semibold leading-[20px] text-white">{f.label}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="border-b border-white/10 shrink-0" />
           </div>
-            </>
+
+          {fakeAccordionSections.map((section) => (
+            <div key={section.id} className="flex flex-col shrink-0">
+              <button
+                onClick={() => toggleAccordion(section.id)}
+                className="flex items-center justify-between px-3 py-2.5 w-full text-left"
+                aria-expanded={openAccordions.has(section.id)}
+              >
+                <span
+                  className={`text-[16px] font-medium leading-[24px] transition ${
+                    openAccordions.has(section.id) ? 'text-white' : 'text-white/45 hover:text-white/70'
+                  }`}
+                >
+                  {section.name}
+                </span>
+                <AccordionChevron open={openAccordions.has(section.id)} />
+              </button>
+              {openAccordions.has(section.id) && (
+                <div className="flex flex-col gap-2 pb-3">
+                  {section.options.map((opt) => (
+                    <button
+                      key={opt}
+                      className="text-left px-3 py-2 rounded-lg text-[14px] font-medium leading-[20px] text-white/70 bg-white/5 hover:bg-white/[0.08] transition"
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="border-b border-white/10" />
+            </div>
+          ))}
+
+          <button
+            onClick={() => setAddComponentModalOpen(true)}
+            className="flex items-center justify-between px-3 py-2.5 w-full text-left text-white/45 hover:text-white/70 transition shrink-0"
+          >
+            <span className="text-[16px] font-medium leading-[24px]">Add</span>
+            <span className="text-[18px] leading-none">+</span>
+          </button>
+            </div>
           )}
 
         </nav>
@@ -10060,6 +10168,88 @@ export default function App() {
           </>
         )}
       </main>
+
+      {/* Add-component modal — UI concept only. Shows what wiring a custom
+          component into the Home Feed could look like (paste code, pick a
+          slot); "Add to Home Feed" just closes the modal, no feed mutation. */}
+      {addComponentModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          style={{ backdropFilter: 'blur(4px)' }}
+          onClick={() => setAddComponentModalOpen(false)}
+        >
+          <div
+            className="w-[480px] max-w-[calc(100vw-2rem)] flex flex-col gap-5 rounded-2xl bg-[#0c1226] border border-[#CCCCCC]/35 p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-[18px] font-semibold leading-[24px] text-white">Add component to Home Feed</p>
+              <button
+                onClick={() => setAddComponentModalOpen(false)}
+                aria-label="Close"
+                className="h-7 w-7 rounded-full flex items-center justify-center text-white/45 hover:text-white hover:bg-white/10 transition"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <p className="text-[14px] leading-[20px] text-white/45">
+              Paste a component and choose where it slots into the feed. This is a concept of the flow only — nothing is actually added.
+            </p>
+
+            <div>
+              <p className="text-[14px] uppercase tracking-[0.08em] leading-[20px] text-white/40 font-medium mb-1.5">
+                Insert after
+              </p>
+              <select
+                value={addComponentSlot}
+                onChange={(e) => setAddComponentSlot(Number(e.target.value))}
+                className="w-full rounded-lg bg-white/5 border border-[#CCCCCC]/35 px-3 py-2 text-[14px] text-white"
+              >
+                {FRAMES.map((f) => (
+                  <option key={f.id} value={f.id} className="bg-[#0c1226]">
+                    {f.id}. {f.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <p className="text-[14px] uppercase tracking-[0.08em] leading-[20px] text-white/40 font-medium mb-1.5">
+                Component code
+              </p>
+              <textarea
+                value={addComponentCode}
+                onChange={(e) => setAddComponentCode(e.target.value)}
+                placeholder={'<YourComponent />'}
+                rows={8}
+                spellCheck={false}
+                className="w-full rounded-lg bg-white/5 border border-[#CCCCCC]/35 px-3 py-2 text-[13px] font-mono text-white/80 placeholder:text-white/25 resize-none focus:outline-none focus:border-white/50"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                onClick={() => setAddComponentModalOpen(false)}
+                className="px-3.5 py-2 rounded-full text-[14px] font-medium leading-[20px] text-white/70 hover:text-white transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setAddComponentModalOpen(false)
+                  setAddComponentCode('')
+                }}
+                className="px-3.5 py-2 rounded-full bg-white text-black text-[14px] font-medium leading-[20px] hover:bg-white/90 transition"
+              >
+                Add to Home Feed
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </div>
     </NavContext.Provider>
