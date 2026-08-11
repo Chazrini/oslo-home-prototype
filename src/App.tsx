@@ -10105,15 +10105,10 @@ export default function App() {
           actions on the right (non-functional for now). */}
       <header className="shrink-0 h-[72px] flex items-center justify-between px-6 border-b border-[#CCCCCC]/35">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-[#0070E0] flex items-center justify-center shrink-0">
-            <svg viewBox="0 0 13.695 16.5" className="h-[18px] w-auto" aria-hidden>
-              <path
-                d="M11.6813 3.795C11.6813 5.83875 9.795 8.25 6.94125 8.25H4.1925L4.0575 9.10125L3.41625 13.2H0L2.055 0H7.59C9.45375 0 10.92 1.03875 11.46 2.4825C11.6138 2.89125 11.6888 3.33375 11.6813 3.795Z"
-                fill="#ffffff"
-              />
-            </svg>
+          <div className="h-[47px] w-[47px] rounded-xl bg-[#002991] flex items-center justify-center shrink-0">
+            <img src="/images/paypal-monogram.png" alt="" className="h-[22px] w-auto" aria-hidden />
           </div>
-          <h1 className="font-display text-[32px] font-black leading-[32px] tracking-[-1px]">Oslo Home Feed Simulator</h1>
+          <h1 className="font-display text-[27px] font-black leading-[27px] tracking-[-1px]">Home Feed Simulator</h1>
         </div>
         <div className="flex items-center gap-2">
           <button
