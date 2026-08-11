@@ -3940,7 +3940,7 @@ const PhoneShell = ({
       className={
         bare
           ? 'w-[402px] h-[874px] relative'
-          : 'w-[414px] h-[886px] rounded-[54px] bg-black shadow-phone border border-white/5 p-[6px] relative'
+          : 'w-[414px] h-[886px] rounded-[54px] bg-black shadow-phone border border-[#CCCCCC]/35 p-[6px] relative'
       }
     >
       {/* iOS Dynamic Island — 122×37, vertically centered with status bar
@@ -4051,7 +4051,7 @@ const PrototypeNav = ({
       >
         <ChevronIcon dir="left" />
       </button>
-      <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/5 border border-white/10">
+      <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/5 border border-[#CCCCCC]/35">
         {FRAMES.map((f) => (
           <button
             key={f.id}
@@ -8545,6 +8545,786 @@ const BrowserSheet = () => {
   )
 }
 
+// ---------- Component catalog (docs mode) ----------
+// A second top-level mode for browsing cataloged components in isolation,
+// each with a short description, a note on how it's used in the live
+// prototype, and a standalone code snippet a developer can copy into
+// their own front end. Distinct from the phone-feed Prototype mode —
+// toggled from the sidebar (see catalogMode in App()).
+
+// Full NavApi shape with every handler a no-op and every field at a
+// neutral default — mirrors useNav()'s own no-provider fallback above.
+// `overrides` lets a catalog entry force a sheet open (e.g.
+// cryptoOverviewOpen: true) without touching the live prototype's nav
+// state, and without its own close button being able to make it
+// disappear (the close handler stays a no-op unless overridden).
+const buildCatalogNavApi = (overrides?: Partial<NavApi>): NavApi => ({
+  view: 'feed',
+  openFeed: () => {},
+  browserBrand: null,
+  openBrowser: () => {},
+  closeBrowser: () => {},
+  cryptoPdpCoin: null,
+  cryptoPdpSource: 'direct',
+  openCryptoPdp: () => {},
+  closeCryptoPdp: () => {},
+  openBitcoinPdp: () => {},
+  cryptoOverviewOpen: false,
+  openCryptoOverview: () => {},
+  closeCryptoOverview: () => {},
+  ...overrides,
+})
+
+type CatalogEntry = {
+  id: string
+  name: string
+  group: string
+  description: string
+  usage: string
+  code: string
+  // Illustrative "why am I seeing this" copy — this prototype has no live
+  // ranking engine, so these are representative examples of the reasoning
+  // a real personalization system would surface for this section, not a
+  // computed result.
+  whySeeing: { explanation: string; signals: string[] }
+  navOverrides?: Partial<NavApi>
+  render: () => React.ReactNode
+}
+
+const CATALOG_ENTRIES: CatalogEntry[] = [
+  {
+    id: 'account-snapshot',
+    name: 'AccountSnapshot',
+    group: 'Feed sections',
+    description:
+      'The top-of-feed balance card: PayPal balance, Pay Later, PayPal+ and Crypto account tiles.',
+    usage:
+      "The first section of the Home feed (frame 1, \"Account Snapshot\"). The Crypto tile's onClick opens the Crypto Overview sheet via openCryptoOverview() from NavContext.",
+    code: `// Container: horizontal scroll, 16px side padding, tiles are 225×127
+// with a 12px gap (HScroll's default "gap-3"). Every tile shell below
+// is a design-system <Card> instance — see the note at the bottom.
+<div id="account" className="px-4 mt-4">
+  <HScroll className="-mx-4 px-4 pb-1">
+    {/* Card: 225×127, 12px radius, translucent grey fill.
+        AcctHeader sits at inset 12/12, AcctFooter at inset 12/67. */}
+    <AcctTile>
+      {/* label: 12px/16px, weight 500, white, at 0,8 inside the header */}
+      <AcctHeader
+        label="PayPal balance"
+        trailing={
+          // 48×32, 4px radius, 0.5px border rgba(204,204,204,0.28)
+          <div style={{ width: 48, height: 32, borderRadius: 4,
+            border: '0.5px solid rgba(204,204,204,0.28)',
+            background: 'rgba(129,129,129,0.2)' }}>
+            <img src="/images/card-debit.png" className="w-full h-full object-cover" />
+          </div>
+        }
+      />
+      {/* amount: 20px/32px, weight 900, letterSpacing -1px, white
+          sub: 12px/16px, rgba(255,255,255,0.72) (or subColor override) */}
+      <AcctFooter amount="$125.56" sub="Available balance" />
+    </AcctTile>
+
+    <AcctTile>
+      <AcctHeader
+        label="Pay Later"
+        trailing={
+          // 33×33, 8px radius icon chip
+          <div style={{ width: 33, height: 33, borderRadius: 8,
+            background: 'rgba(129,129,129,0.2)' }}>
+            <img src="/images/icon-calendar.svg" style={{ width: 16, height: 16 }} />
+          </div>
+        }
+      />
+      <AcctFooter amount="$1,500.00" sub="Spending Power" subColor="#73e6ab" />
+    </AcctTile>
+
+    <AcctTile>
+      <AcctHeader
+        label="PayPal+"
+        trailing={
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: '#fff' }}>
+            <img src="/images/paypal-monogram.svg" style={{ width: 22, height: 22 }} />
+          </div>
+        }
+      />
+      <AcctFooter amount="10,380 points" sub="Available to use" />
+    </AcctTile>
+
+    <AcctTile>
+      <AcctHeader
+        label="PayPal credit card"
+        trailing={
+          <div style={{ width: 48, height: 32, borderRadius: 4,
+            border: '0.4px solid rgba(204,204,204,0.28)' }}>
+            <img src="/images/card-credit.png" className="w-full h-full object-cover" />
+          </div>
+        }
+      />
+      <AcctFooter amount="$245.72" sub="Payment due Mar, 30" />
+    </AcctTile>
+
+    {/* Opens the Crypto Overview sheet on click (openCryptoOverview() from
+        NavContext). Footer is custom — same 12px insets as AcctFooter, plus
+        a ↑3.56% pill (24px height, pill radius, translucent green fill). */}
+    <AcctTile onClick={() => openCryptoOverview()}>
+      <AcctHeader
+        label="Crypto"
+        trailing={
+          <div style={{ width: 33, height: 33, borderRadius: 8,
+            background: 'rgba(129,129,129,0.2)' }}>
+            <img src="/images/icon-crypto-snap.svg" style={{ width: 16, height: 16 }} />
+          </div>
+        }
+      />
+      <div className="absolute" style={{ left: 12, top: 67, right: 12, height: 48 }}>
+        <p style={{ fontSize: 20, lineHeight: '32px', letterSpacing: '-1px', fontWeight: 900 }}>
+          $388.32
+        </p>
+        <p style={{ fontSize: 12, lineHeight: '16px', color: 'rgba(255,255,255,0.72)' }}>
+          Available balance
+        </p>
+        <div style={{ position: 'absolute', right: 0, top: 24, width: 63, height: 24,
+          borderRadius: 999, background: 'rgba(0,82,67,0.25)' }}>
+          <span style={{ fontSize: 12, color: '#73e6ab', fontWeight: 500, lineHeight: '16px' }}>
+            ↑ 3.56%
+          </span>
+        </div>
+      </div>
+    </AcctTile>
+
+    // "Banks and cards" — same 225×127 Card footprint but a dashed
+    // border instead of a solid fill, since it's an empty-state CTA.
+    <Card width={225} height={127} radius={12} fill="rgba(129,129,129,0.2)"
+      border="1px dashed rgba(204,204,204,0.28)">
+      {/* ...two 32px icon chips + a 33px circular "+" Add button, see
+          App.tsx for exact positions */}
+    </Card>
+  </HScroll>
+</div>
+
+// AcctTile is a thin wrapper around the shared design-system <Card>
+// primitive — every tile above is really:
+//   <Card width={225} height={127} radius={12} fill="rgba(129,129,129,0.2)">
+// AcctHeader (inset 12/12) and AcctFooter (inset 12/67) are the only
+// bits that differ tile-to-tile; the Card shell stays pixel-identical.`,
+    whySeeing: {
+      explanation:
+        'Always slot 0. Shown to every customer on every session, regardless of persona — surfaces balance, recent activity, and quick actions.',
+      signals: ['Always shown', 'Live balance data', 'Recent activity'],
+    },
+    render: () => <AccountSnapshot />,
+  },
+  {
+    id: 'deck-carousel',
+    name: 'DeckCarousel',
+    group: 'Feed sections',
+    description: 'The swipeable "Deck Collection" card carousel (brand spotlight cards).',
+    usage:
+      'Sits in the Home feed below Account Snapshot (frame 2, "Deck Collection"). Tapping a card opens the in-app Browser sheet via openBrowser(brand) from NavContext.',
+    code: `// Outer stack: 370×497. Slot geometry for the 3-card fan
+// (DECK_SLOT_GEOM) — front is centred/full-size, back cards peek out
+// ±28px, rotated ±8°, scaled to 280×374 (87.5% of front):
+const DECK_SLOT_GEOM = {
+  [-1]: { x: -28, y: 56, w: 280, h: 374, rotate: -8, z: 1 },
+  [0]:  { x: 0,   y: 0,  w: 320, h: 427, rotate: 0,  z: 3 }, // front
+  [1]:  { x: 28,  y: 56, w: 280, h: 374, rotate: 8,  z: 1 },
+}
+
+<section className="mt-4">
+  <div className="mx-auto relative" style={{ width: 370, height: 497 }}>
+    {/* Drag surface: horizontal drag/flick re-orders the deck (commit
+        past 56px or a 0.5px/ms flick). Interaction logic omitted here —
+        see DeckCarousel in App.tsx — dimensions/colors below are exact. */}
+    <div style={{ width: 370, height: 445 }}>
+      {DECK_CARDS.map((card, i) => {
+        const slot = DECK_SLOT_GEOM[offsetFor(i, active)]
+        return (
+          <div
+            key={card.id}
+            style={{
+              width: slot.w,
+              height: slot.h,
+              transform: \`translate(calc(-50% + \${slot.x}px), \${slot.y}px) rotate(\${slot.rotate}deg)\`,
+              zIndex: slot.z,
+            }}
+          >
+            {/* Card shell: front radius 24 / back radius 21, 0.5px border
+                rgba(204,204,204,0.28), per-brand base color + radial
+                gradient overlay, drop shadow (front: 0 32px 32px -4px,
+                back: 0 28px 28px -3.5px, both rgba(0,0,0,0.25)). Same
+                design-system <Card> primitive used everywhere else — the
+                gradient overlay + shop button are the only additions. */}
+            <Card
+              width={slot.w}
+              height={slot.h}
+              radius={slot.z === 3 ? 24 : 21}
+              fill={card.baseColor} // e.g. Nike: rgb(15, 19, 33)
+              border="0.5px solid rgba(204,204,204,0.28)"
+              shadow={slot.z === 3 ? '0 32px 32px -4px rgba(0,0,0,0.25)' : '0 28px 28px -3.5px rgba(0,0,0,0.25)'}
+            >
+              <div className="absolute inset-0" style={{ background: card.gradient }} />
+              <img src={card.productImage} style={{ objectFit: 'contain', ...card.productStyleFront }} />
+
+              {/* Header: 288×108 block at 15.5/15.5. Title 32px/32px weight
+                  900 letterSpacing -1px, centered. Badge pill: 24px tall,
+                  bg #002991, 4px radius, text 12px/16px #60cdff weight 500. */}
+              <div style={{ left: 15.5, top: 15.5, width: 288, height: 108 }}>
+                <h3 style={{ fontSize: 32, lineHeight: '32px', fontWeight: 900, letterSpacing: '-1px' }}>
+                  {card.titleLine1}
+                  {card.titleLine2 && <><br />{card.titleLine2}</>}
+                </h3>
+                <div style={{ height: 24, background: '#002991', borderRadius: 4 }}>
+                  <span style={{ fontSize: 12, color: '#60cdff', fontWeight: 500 }}>{card.badgeLabel}</span>
+                </div>
+              </div>
+
+              {/* Footer: 288×44 block at 15.5/366.5 (front). 40×40 circular
+                  brand avatar, name 16px/24px weight 500, "Pay Later"
+                  14px/20px rgba(255,255,255,0.72), Shop button 67×40,
+                  translucent grey fill, 24px radius. */}
+              <div style={{ left: 15.5, top: 366.5, width: 288, height: 44 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 999, background: card.brandLogoBg ?? '#000',
+                  border: '1px solid rgba(204,204,204,0.28)' }}>
+                  <img src={card.brandLogo} className="w-full h-full object-cover" />
+                </div>
+                <p style={{ fontSize: 16, lineHeight: '24px', fontWeight: 500 }}>{card.brandName}</p>
+                <p style={{ fontSize: 14, lineHeight: '20px', color: 'rgba(255,255,255,0.72)' }}>Pay Later</p>
+                <button
+                  style={{ width: 67, height: 40, background: 'rgba(204,204,204,0.28)',
+                    border: '1px solid rgba(129,129,129,0.2)', borderRadius: 24 }}
+                  onClick={() => openBrowser(card.id)}
+                >
+                  Shop
+                </button>
+              </div>
+            </Card>
+          </div>
+        )
+      })}
+    </div>
+
+    {/* Pagination — 8×8 dots, 8px gap, centered at y:461. Active = #fff,
+        inactive = #808080. */}
+    <div style={{ left: '50%', top: 461, gap: 8 }}>
+      {DECK_CARDS.map((_, i) => (
+        <button key={i} style={{ width: 8, height: 8, borderRadius: 999,
+          background: i === active ? '#fff' : '#808080' }} />
+      ))}
+    </div>
+  </div>
+</section>`,
+    whySeeing: {
+      explanation:
+        'Always slot 1. Educates users that PayPal offers Pay Later at the biggest brands — shown to every customer on every session, independent of purchase history.',
+      signals: ['Always shown', 'Pay Later eligible', 'Top-brand merchants'],
+    },
+    render: () => <DeckCarousel />,
+  },
+  {
+    id: 'tile-group',
+    name: 'TileGroup',
+    group: 'Feed sections',
+    description:
+      'The "Card.Collection.Square" pattern: a horizontally-scrollable row of square 136×136 brand tiles, each with a logo, name and cashback rate.',
+    usage:
+      'Used repeatedly through the Home feed for brand collections — e.g. "New York City / shopper favorites" (frame 3, "List NBA"). Takes a title/subtitle and a list of items.',
+    code: `// Card.Collection.Square (Figma 1:1072). Every rounded rect here —
+// outer container and inner tiles — is an instance of the shared
+// design-system <Card> primitive; only width/height/radius/fill change.
+<section className="mt-4 px-4">
+  <Card width={370} radius={24} fill="rgba(129,129,129,0.2)" height={314}>
+    <div className="px-4 pt-4">
+      <SectionTitle white="New York City" blue="shopper favorites" size="text-[24px]" />
+    </div>
+    <HScroll className="px-4">
+      {[
+        { name: 'Uniqlo', back: '5% back', src: '/images/brand-uniqlo.png', tileBg: '#ec1d24' },
+        { name: 'KITH', back: '3% back', src: '/images/brand-kith.png', tileBg: '#fff' },
+        { name: 'Farfetch', back: '5% back', src: '/images/brand-farfetch.png', tileBg: '#fff' },
+        { name: 'Nike', back: '5% back', src: '/images/brand-nike.png', tileBg: '#000' },
+        { name: 'Apple', back: '2% back', src: '/images/brand-apple.png', tileBg: '#fff' },
+      ].map((it) => (
+        <div key={it.name} style={{ width: 136 }}>
+          {/* Card: 136×136, 24px radius, per-brand fill, 64×64 logo centered */}
+          <Card width={136} height={136} radius={24} fill={it.tileBg}>
+            <img src={it.src} style={{ width: 64, height: 64, left: '50%', top: '50%',
+              transform: 'translate(-50%, -50%)' }} />
+          </Card>
+          {/* Caption: name 14px/20px weight 500 white, "Pay later" 12px/16px
+              rgba(255,255,255,0.72), optional back-rate line in #60cdff */}
+          <p style={{ fontSize: 14, lineHeight: '20px', fontWeight: 500, padding: '8px 4px 0' }}>
+            {it.name}
+          </p>
+          <p style={{ fontSize: 12, lineHeight: '16px', color: 'rgba(255,255,255,0.72)', padding: '0 4px' }}>
+            Pay later
+          </p>
+        </div>
+      ))}
+      {/* "See More" pill: 96×40, translucent grey fill, 24px radius */}
+      <div style={{ width: 136, height: 136 }}>
+        <button style={{ width: 96, height: 40, background: 'rgba(204,204,204,0.28)',
+          border: '1px solid rgba(129,129,129,0.2)', borderRadius: 24, fontSize: 14, fontWeight: 500 }}>
+          See More
+        </button>
+      </div>
+    </HScroll>
+  </Card>
+</section>`,
+    whySeeing: {
+      explanation:
+        'Location set to New York City. Surfaces merchants with high local engagement in the customer’s area — a "Near You" collection.',
+      signals: ['Location: New York City', 'High local engagement'],
+    },
+    render: () => (
+      <TileGroup
+        title="New York City"
+        subtitle="shopper favorites"
+        items={[
+          { name: 'Uniqlo', back: '5% back', src: '/images/brand-uniqlo.png', tileBg: '#ec1d24' },
+          { name: 'KITH', back: '3% back', src: '/images/brand-kith.png', tileBg: '#fff' },
+          { name: 'Farfetch', back: '5% back', src: '/images/brand-farfetch.png', tileBg: '#fff' },
+          { name: 'Nike', back: '5% back', src: '/images/brand-nike.png', tileBg: '#000' },
+          { name: 'Apple', back: '2% back', src: '/images/brand-apple.png', tileBg: '#fff' },
+        ]}
+      />
+    ),
+  },
+  {
+    id: 'spotlight-section',
+    name: 'SpotlightSection',
+    group: 'Feed sections',
+    description:
+      'The "Card.Colection.Spotlight" pattern: a horizontally-scrollable row of larger 250×314 hero cards, each with an avatar, a cashback badge, a product image and a footer.',
+    usage:
+      'Used for merchandising moments in the Home feed — e.g. "This weeks spring heros" (frame 4, "Splash Collection 1"), "Top tec gifts" and "Refresh your space". Takes a title/subtitle and a list of cards.',
+    code: `// Card.Colection.Spotlight (Figma 15:1577). Outer and inner cards
+// are both instances of the shared design-system <Card> primitive
+// (height matches cardHeight — 420 for Spring heros, 380 for shorter
+// variants like Top tec gifts).
+<section className="mt-4 px-4">
+  <Card width={370} radius={24} fill="rgba(129,129,129,0.2)" height={420}>
+    <div className="px-4 pt-4">
+      <SectionTitle white="This weeks spring" blue="heros" size="text-[24px]" />
+    </div>
+    <HScroll className="px-4 pt-2">
+      {SPRING_HEROS.map((card, i) => (
+        // Card: 250×314, 12px radius, same translucent grey fill
+        // (composites lighter than the outer Card since it's a 2nd layer)
+        <Card key={i} width={250} height={314} radius={12} fill="rgba(129,129,129,0.2)">
+          {/* Header: 40×40 circular avatar at 16/16, cashback badge pill
+              65×24 top-right, bg #002991, text 12px #60cdff weight 500 */}
+          <div style={{ left: 16, top: 16, right: 16, height: 40 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 999,
+              border: '1px solid rgba(204,204,204,0.28)', background: card.avatarBg }}>
+              <img src={card.avatar} className="w-full h-full object-cover" />
+            </div>
+            <div style={{ width: 65, height: 24, background: '#002991', borderRadius: 4 }}>
+              <span style={{ fontSize: 12, color: '#60cdff', fontWeight: 500 }}>{card.back}</span>
+            </div>
+          </div>
+          {/* Product image: 174×174 framed area at left:38 top:72 */}
+          <div style={{ left: 38, top: 72, width: 174, height: 174, overflow: 'hidden' }}>
+            <img src={card.product} style={card.imgStyle} />
+          </div>
+          {/* Footer: name 14px/20px weight 500, "Pay later" 12px/16px
+              rgba(255,255,255,0.72), at left:16 right:16 top:262 */}
+          <div style={{ left: 16, right: 16, top: 262 }}>
+            <p style={{ fontSize: 14, lineHeight: '20px', fontWeight: 500 }}>{card.name}</p>
+            <p style={{ fontSize: 12, lineHeight: '16px', color: 'rgba(255,255,255,0.72)' }}>Pay later</p>
+          </div>
+        </Card>
+      ))}
+      {/* "See More" pill: 96×40 centered in a 125×314 slot */}
+      <div style={{ width: 125, height: 314 }}>
+        <button style={{ width: 96, height: 40, background: 'rgba(204,204,204,0.28)',
+          border: '1px solid rgba(129,129,129,0.2)', borderRadius: 24, fontSize: 14, fontWeight: 500 }}>
+          See More
+        </button>
+      </div>
+    </HScroll>
+  </Card>
+</section>`,
+    whySeeing: {
+      explanation:
+        'Calendar-driven "Seasonal" collection. Surfaces spring retail-event merchants to every customer regardless of purchase history.',
+      signals: ['Seasonal event: Spring', 'Shown to all customers'],
+    },
+    render: () => <SpringHeros />,
+  },
+  {
+    id: 'stream-cards',
+    name: 'StreamCards',
+    group: 'Feed sections',
+    description: 'The horizontally-scrollable subscriptions/streaming promo row.',
+    usage: 'Part of the Home feed, in the "Fanned Collection" section (frame 5).',
+    code: `// Outer + tile shells are both design-system <Card> instances.
+// Fan slot geometry (SLOT_GEOM) — front tile is centred/largest;
+// back tiles fan out at ±8/16° with decreasing width/height:
+const SLOT_GEOM = {
+  [-1]: { x: -79.38, y: -8.83, w: 167.742, h: 256.029, rotate: -8 },
+  [0]:  { x: 0.5,    y: -9.2,  w: 175,     h: 271,     rotate: 0  }, // front
+  [1]:  { x: 79.17,  y: -8.83, w: 167.742, h: 256.029, rotate: 8  },
+}
+
+<section className="mt-4 px-4">
+  <Card width={370} radius={24} fill="rgba(129,129,129,0.2)" height={442.626}>
+    <div className="px-4 pt-4">
+      <SectionTitle white="Stream more." blue="Pay less." size="text-[24px]" />
+    </div>
+    {/* Drag surface: horizontal drag/flick re-orders the ring (commit past
+        56px or a 0.5px/ms flick). Interaction logic omitted — see
+        StreamCards in App.tsx — dimensions/colors below are exact. */}
+    <div style={{ left: 16, top: 88, width: 338, height: 338.626 }}>
+      {STREAM_TILES.map((tile, i) => {
+        const slot = SLOT_GEOM[offsetFor(i, active)]
+        const isFront = slot.rotate === 0
+        return (
+          <Card
+            key={tile.name}
+            width={slot.w}
+            height={slot.h}
+            radius={isFront ? 24 : 22}
+            fill="#101010"
+            border="0.5px solid rgba(204,204,204,0.28)"
+            shadow={isFront ? '0 0 48px 16px rgba(0,0,0,0.25)' : '0 0 45.257px 15.086px rgba(0,0,0,0.25)'}
+            style={{ transform: \`translate(calc(-50% + \${slot.x}px), calc(-50% + \${slot.y}px)) rotate(\${slot.rotate}deg)\` }}
+          >
+            {/* Album art: circular, inset 8.86%/7.2%, 81.7% width, 1:1 */}
+            <div style={{ left: '8.86%', top: '7.2%', width: '81.7%', aspectRatio: '1 / 1', borderRadius: 999 }}>
+              <img src={tile.src} className="w-full h-full object-cover" />
+            </div>
+            {/* Caption (front tile only): name 16px/24px weight 500,
+                sub 14px/20px rgba(255,255,255,0.7), at left:15.5 bottom:16 */}
+            {isFront && (
+              <div style={{ left: 15.5, bottom: 16, width: 143 }}>
+                <p style={{ fontSize: 16, lineHeight: '24px', fontWeight: 500 }}>{tile.name}</p>
+                <p style={{ fontSize: 14, lineHeight: '20px', color: 'rgba(255,255,255,0.7)' }}>{tile.back}</p>
+              </div>
+            )}
+          </Card>
+        )
+      })}
+    </div>
+    {/* Pagination — 8×8 dots, 8px gap. Active #fff, inactive rgba(255,255,255,0.63) */}
+    <div style={{ left: 149, top: 406.63, gap: 8 }}>
+      {STREAM_TILES.map((t, i) => (
+        <button key={i} style={{ width: 8, height: 8, borderRadius: 999,
+          background: i === active ? '#fff' : 'rgba(255,255,255,0.63)' }} />
+      ))}
+    </div>
+  </Card>
+</section>`,
+    whySeeing: {
+      explanation:
+        'High affinity for entertainment/streaming based on recent activity. A "For You" collection — introduces adjacent streaming merchants to balance familiarity with discovery.',
+      signals: ['Shopping interest: streaming', 'Personalized ranking'],
+    },
+    render: () => <StreamCards />,
+  },
+  {
+    id: 'crypto-promo',
+    name: 'CryptoPromo',
+    group: 'Feed sections',
+    description: 'The Crypto promo card shown inline in the feed (buy/sell teaser + coin ticker).',
+    usage: 'Part of the Home feed, in the "Spotlight NBA - Crypto" section (frame 6).',
+    code: `// Card.NBA.Spotlight (Figma 15:4039). The outer container is a
+// design-system <Card> instance: 370 wide, height 493.006, 24px radius,
+// solid rgb(16, 26, 51) fill.
+<section className="mt-4 px-4">
+  <Card width={370} radius={24} fill="rgb(16, 26, 51)" height={493.006}>
+    {/* Header: 48×48 circular icon chip (translucent grey), centered;
+        headline 32px/32px weight 900 letterSpacing -1px, "start with
+        just $1." in #60cdff, rest white. */}
+    <div style={{ left: 16, top: 16, width: 338, height: 136 }}>
+      <div style={{ left: 145, top: 8, width: 48, height: 48, borderRadius: 999,
+        background: 'rgba(204,204,204,0.28)' }}>
+        <img src="/images/crypto-icon.svg" style={{ width: 20, height: 20 }} />
+      </div>
+      <h2 style={{ fontSize: 32, lineHeight: '32px', letterSpacing: '-1px', fontWeight: 900 }}>
+        <span>Crypto made simple, </span>
+        <span style={{ color: '#60cdff' }}>start with just $1.</span>
+      </h2>
+    </div>
+    {/* Illustration: 338×253.006, object-cover */}
+    <div style={{ left: 16, top: 168, width: 338, height: 253.006 }}>
+      <img src="/images/crypto-coins.png" className="w-full h-full object-cover" />
+    </div>
+    {/* Footer: two 163×40 pill buttons, 8px gap, translucent grey fill,
+        24px radius, text 14px weight 500. */}
+    <div style={{ left: 16, top: 437.006, width: 338, height: 40 }}>
+      <button style={{ width: 163, height: 40, background: 'rgba(204,204,204,0.28)',
+        border: '1px solid rgba(129,129,129,0.2)', borderRadius: 24, fontSize: 14, fontWeight: 500 }}>
+        Learn More
+      </button>
+      <button style={{ left: 175, width: 163, height: 40, background: 'rgba(204,204,204,0.28)',
+        border: '1px solid rgba(129,129,129,0.2)', borderRadius: 24, fontSize: 14, fontWeight: 500 }}>
+        Buy Crypto
+      </button>
+    </div>
+  </Card>
+</section>`,
+    whySeeing: {
+      explanation:
+        'Discovery-oriented customer profile. Crypto surfaces as a Next Best Action for users with high exploration tendency and no existing crypto product.',
+      signals: ['No crypto product', 'High exploration tendency'],
+    },
+    render: () => <CryptoPromo />,
+  },
+  {
+    id: 'track-orders',
+    name: 'TrackOrders',
+    group: 'Feed sections',
+    description: 'The "Track orders to your doorstep" shipment promo card.',
+    usage: 'Part of the Home feed, in the "Spotlight NBA - Tracking" section (frame 10).',
+    code: `// Card.NBA.Spotlight (Figma 24:2460). The outer container is a
+// design-system <Card> instance: 370 wide, height 433.006, 24px radius,
+// solid rgb(16, 26, 51) fill.
+<section className="mt-4 px-4">
+  <Card width={370} radius={24} fill="rgb(16, 26, 51)" height={433.006}>
+    {/* Header: 32px/32px weight 900 letterSpacing -1px, 2-line, centered,
+        second line "your doorstep" in #60cdff. */}
+    <div style={{ left: 32, top: 24, width: 306, height: 64 }}>
+      <h2 style={{ fontSize: 32, lineHeight: '32px', letterSpacing: '-1px', fontWeight: 900 }}>
+        <span>Track orders to</span>
+        <br />
+        <span style={{ color: '#60cdff' }}>your doorstep</span>
+      </h2>
+    </div>
+    {/* Illustration: 338×253.006, object-cover, object-position bottom */}
+    <div style={{ left: 16, top: 108, width: 338, height: 253.006 }}>
+      <img src="/images/track-orders.png" className="w-full h-full object-cover object-bottom" />
+    </div>
+    {/* Footer: single full-width 338×40 pill button, translucent grey
+        fill, 24px radius, text 14px weight 500. */}
+    <div style={{ left: 16, top: 377.01, width: 338, height: 40 }}>
+      <button style={{ width: 338, height: 40, background: 'rgba(204,204,204,0.28)',
+        border: '1px solid rgba(129,129,129,0.2)', borderRadius: 24, fontSize: 14, fontWeight: 500 }}>
+        Link Email
+      </button>
+    </div>
+  </Card>
+</section>`,
+    whySeeing: {
+      explanation:
+        'Active shopper across multiple categories. Package tracking is offered as a Next Best Action to increase app engagement for customers with regular purchase activity.',
+      signals: ['Active shopper', 'Regular purchase activity'],
+    },
+    render: () => <TrackOrders />,
+  },
+  {
+    id: 'paypal-mastercard-promo',
+    name: 'PayPalMastercardPromo',
+    group: 'Feed sections',
+    description: 'The PayPal Mastercard promo card, including the animated card-flip preview.',
+    usage: 'Part of the Home feed, in the "Carousel NBA" section (frame 8).',
+    code: `// Card.NBA.Carousel (Figma 24:1855). Outer + per-slot shells are
+// both design-system <Card> instances. Outer: 370×514, 24px radius,
+// solid rgb(16, 26, 51) fill. 3-card fan slot geometry (front
+// is largest/topmost, back two recede in y/scale):
+const MC_SLOTS = [
+  { y: 6,   w: 244.444, h: 154, radius: 9.208, z: 3 }, // front
+  { y: -16, w: 225.397, h: 142, radius: 8.521, z: 2 },
+  { y: -38, w: 206.349, h: 130, radius: 7.844, z: 1 },
+]
+// Per-slot design: front = dark-navy w/ chip + PayPal "P" monogram
+// (see FrontCardContent in App.tsx for the inlined chip/monogram SVG);
+// cyan/navy = full PayPal wordmark + Mastercard digital logo
+// (see SecondaryCardContent in App.tsx).
+const MC_DESIGNS = [
+  { variant: 'front', bg: '#152045' },
+  { variant: 'cyan',  bg: '#60cdff' },
+  { variant: 'navy',  bg: '#002991' },
+]
+
+<section className="mt-4 px-4">
+  <Card width={370} radius={24} fill="rgb(16, 26, 51)" height={514}>
+    {/* Header: 32px/32px weight 900 letterSpacing -1px, 2-line centered,
+        second line "of PayPal" in #60cdff. */}
+    <div style={{ left: 16, top: 24, width: 302 }}>
+      <h2 style={{ fontSize: 32, lineHeight: '32px', letterSpacing: '-1px', fontWeight: 900 }}>
+        <span>Get the most out</span>
+        <br />
+        <span style={{ color: '#60cdff' }}>of PayPal</span>
+      </h2>
+    </div>
+    {/* Swipeable deck: 338×338 at left:16 top:104. Drag/flick logic
+        omitted — see PayPalMastercardPromo in App.tsx. Each card's shell
+        is a <Card> using its slot's w/h/radius + design's bg. */}
+    <div style={{ left: 16, top: 104, width: 338, height: 338 }}>
+      {MC_SLOTS.map((slot, i) => (
+        <div key={i} style={{ zIndex: slot.z, transform: \`translateY(\${slot.y}px)\` }}>
+          <Card width={slot.w} height={slot.h} radius={slot.radius} fill={MC_DESIGNS[i].bg}>
+            {i === 0 ? <FrontCardContent scale={1} /> : <SecondaryCardContent variant={MC_DESIGNS[i].variant} scale={1} />}
+          </Card>
+        </div>
+      ))}
+    </div>
+    {/* Pagination: 8×8 dots, active #fff / inactive #808080, at y:294 */}
+    <div style={{ left: 0, top: 294, width: 338, height: 44, gap: 8 }}>
+      {MC_SLOTS.map((_, i) => (
+        <button key={i} style={{ width: 8, height: 8, borderRadius: 999,
+          background: i === 0 ? '#fff' : '#808080' }} />
+      ))}
+    </div>
+    {/* Footer: fine-print 14px/20px rgba(255,255,255,0.72) at left, Apply
+        pill 72×40 translucent grey fill 24px radius at right. */}
+    <div style={{ left: 16, top: 458, width: 338, height: 40 }}>
+      <div style={{ width: 254, fontSize: 14, lineHeight: '20px', color: 'rgba(255,255,255,0.72)' }}>
+        <p>$0 interest if paid in full in 6 months</p>
+        <p>on all purchases of $149+</p>
+      </div>
+      <button style={{ left: 266, width: 72, height: 40, background: 'rgba(204,204,204,0.28)',
+        border: '1px solid rgba(129,129,129,0.2)', borderRadius: 24, fontSize: 14, fontWeight: 500 }}>
+        Apply
+      </button>
+    </div>
+  </Card>
+</section>`,
+    whySeeing: {
+      explanation:
+        'Customer does not own a PayPal Mastercard. Established tenure and spending frequency indicate strong approval likelihood, so it is offered as a Next Best Action.',
+      signals: ['No PayPal Mastercard', 'Established tenure', 'Regular spend'],
+    },
+    render: () => <PayPalMastercardPromo />,
+  },
+]
+
+const CatalogSidebarList = ({
+  selected,
+  onSelect,
+}: {
+  selected: string
+  onSelect: (id: string) => void
+}) => {
+  const groups = Array.from(new Set(CATALOG_ENTRIES.map((e) => e.group)))
+  return (
+    <>
+      {groups.map((group) => (
+        <div key={group} className="flex flex-col gap-1">
+          <p className="px-3 text-[10px] uppercase tracking-[0.16em] text-white/35 font-semibold">
+            {group}
+          </p>
+          {CATALOG_ENTRIES.filter((e) => e.group === group).map((e) => (
+            <button
+              key={e.id}
+              onClick={() => onSelect(e.id)}
+              className={`text-left px-3 py-1.5 rounded-lg text-[12px] transition ${
+                e.id === selected
+                  ? 'bg-white/10 text-white'
+                  : 'text-white/55 hover:bg-white/5 hover:text-white/80'
+              }`}
+            >
+              {e.name}
+            </button>
+          ))}
+        </div>
+      ))}
+    </>
+  )
+}
+
+const CatalogView = ({ entry }: { entry: CatalogEntry }) => {
+  const [showCode, setShowCode] = useState(false)
+  const [copied, setCopied] = useState(false)
+  // Reset the code toggle and any "Copied" toast when switching entries,
+  // so state from the previous component doesn't linger.
+  useEffect(() => {
+    setShowCode(false)
+    setCopied(false)
+  }, [entry.id])
+  const copyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(entry.code)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    } catch {
+      /* clipboard unavailable — silently ignore */
+    }
+  }
+  return (
+    <div className="flex-1 min-h-0 flex">
+      {/* Center column: preview, "Show code" toggle, and the code panel.
+          Scrolls independently so revealing the code snippet never
+          affects the tray's height or position. */}
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center gap-6 py-8">
+        <div className="w-[402px] flex flex-col gap-5">
+          <div className="relative min-h-[300px] max-h-[720px] overflow-y-auto shrink-0">
+            <div className="relative">
+              <NavContext.Provider value={buildCatalogNavApi(entry.navOverrides)}>
+                {entry.render()}
+              </NavContext.Provider>
+            </div>
+          </div>
+
+          <div className="flex justify-center">
+            {/* Toggling this ADDS the code panel below rather than
+                replacing anything, so the example stays visible for
+                reference while reading/copying the snippet. */}
+            <button
+              onClick={() => setShowCode((v) => !v)}
+              className={`px-3 py-1.5 rounded-lg text-[11px] uppercase tracking-[0.14em] font-semibold transition ${
+                showCode ? 'bg-white/15 text-white' : 'bg-white/5 text-white/45 hover:text-white/70'
+              }`}
+            >
+              {showCode ? 'Hide code' : 'Show code'}
+            </button>
+          </div>
+        </div>
+
+        {/* Full-width code panel — spans the whole center column rather
+            than being capped to the 402px preview width. ml-7 (28px)
+            gives the left gap from the nav; the right gap comes from the
+            tray's own m-7 left margin, so mr-0 here avoids doubling it. */}
+        {showCode && (
+          <div className="relative self-stretch ml-7 mr-0">
+            <pre className="font-mono text-[12px] leading-relaxed text-white/85 bg-white/5 border border-[#CCCCCC]/35 rounded-xl p-4 overflow-x-auto overflow-y-auto whitespace-pre-wrap max-h-[1024px]">
+              {entry.code}
+            </pre>
+            <button
+              onClick={copyCode}
+              className="absolute top-3 right-3 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-white/10 hover:bg-white/15 text-white/80 transition"
+            >
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Always-present tray — mirrors the Feed Simulator's "Why am I
+          seeing this?" side panel, but with illustrative static copy
+          since this prototype has no live ranking engine. Full-height,
+          with a constant 28px margin on every side. */}
+      <div className="hidden lg:flex flex-col gap-4 w-[320px] shrink-0 self-stretch m-7 rounded-2xl bg-white/5 border border-[#CCCCCC]/35 p-4 overflow-y-auto">
+        <p className="text-[13px] font-semibold text-white">Why am I seeing this?</p>
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.14em] text-white/40 font-semibold mb-1">
+            Explanation
+          </p>
+          <p className="text-[13px] text-white/70 leading-relaxed">{entry.whySeeing.explanation}</p>
+        </div>
+        {entry.whySeeing.signals.length > 0 && (
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-white/40 font-semibold mb-1">
+              Signals
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {entry.whySeeing.signals.map((signal) => (
+                <span
+                  key={signal}
+                  className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] text-link"
+                >
+                  {signal}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ---------- App ----------
 
 export default function App() {
@@ -8571,6 +9351,28 @@ export default function App() {
       /* private mode / disabled storage — silently ignore */
     }
   }, [sidebarOpen])
+  // Catalog mode — a second top-level mode (alongside the phone-feed
+  // Prototype mode) for browsing each cataloged component in isolation
+  // with documentation + a copyable code snippet. Persisted like
+  // sidebarOpen so a presenter's choice survives a refresh.
+  const [catalogMode, setCatalogMode] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      return window.localStorage.getItem('hfpp:catalogMode') === '1'
+    } catch {
+      return false
+    }
+  })
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('hfpp:catalogMode', catalogMode ? '1' : '0')
+    } catch {
+      /* private mode / disabled storage — silently ignore */
+    }
+  }, [catalogMode])
+  const [selectedCatalogId, setSelectedCatalogId] = useState<string>(
+    CATALOG_ENTRIES[0].id,
+  )
   // Mobile / "bare" presentation mode. Set ?mobile=1 (or ?bare=1) in
   // the URL to strip the prototype chrome — sidebar, toggle, prototype
   // nav, phone bezel, dynamic island, gradient bg — so the 402×874
@@ -8835,17 +9637,63 @@ export default function App() {
   }
   return (
     <NavContext.Provider value={navApi}>
-    <div className="min-h-screen w-full bg-[radial-gradient(circle_at_20%_0%,#141d33_0%,#080c1a_55%,#04050f_100%)] text-white flex relative">
-      {/* Sidebar collapse/expand toggle — fixed at top-left of viewport,
-          always visible (mirrors the panel-toggle pattern from Claude
-          Code's UI). Below the lg breakpoint the sidebar is hidden, so
-          the toggle is hidden too. */}
+    <div
+      className={`h-screen w-full text-white flex flex-col overflow-hidden ${
+        catalogMode
+          ? 'bg-black'
+          : 'bg-[radial-gradient(circle_at_20%_0%,#141d33_0%,#080c1a_55%,#04050f_100%)]'
+      }`}
+    >
+      {/* Top app bar — icon + product name on the left, export/share
+          actions on the right (non-functional for now). */}
+      <header className="shrink-0 h-[72px] flex items-center justify-between px-6 border-b border-[#CCCCCC]/35">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-[#0070E0] flex items-center justify-center shrink-0">
+            <svg viewBox="0 0 13.695 16.5" className="h-[18px] w-auto" aria-hidden>
+              <path
+                d="M11.6813 3.795C11.6813 5.83875 9.795 8.25 6.94125 8.25H4.1925L4.0575 9.10125L3.41625 13.2H0L2.055 0H7.59C9.45375 0 10.92 1.03875 11.46 2.4825C11.6138 2.89125 11.6888 3.33375 11.6813 3.795Z"
+                fill="#ffffff"
+              />
+            </svg>
+          </div>
+          <h1 className="text-xl font-bold">Oslo Home Feed Simulator</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="flex items-center gap-1.5 pl-3 pr-3.5 py-2 rounded-full bg-white/10 hover:bg-white/15 text-[13px] font-semibold transition"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+            </svg>
+            Share
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-1.5 pl-3 pr-3.5 py-2 rounded-full bg-white/10 hover:bg-white/15 text-[13px] font-semibold transition"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Save
+          </button>
+        </div>
+      </header>
+
+      <div className="flex-1 min-h-0 flex relative">
+      {/* Sidebar collapse/expand toggle — anchored to the top-left of the
+          row below the app bar, always visible (mirrors the panel-toggle
+          pattern from Claude Code's UI). Below the lg breakpoint the
+          sidebar is hidden, so the toggle is hidden too. */}
       <button
         type="button"
         onClick={() => setSidebarOpen((o) => !o)}
         aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
         aria-pressed={sidebarOpen}
-        className="hidden lg:flex fixed top-4 left-4 z-50 h-8 w-8 items-center justify-center rounded-md text-white/70 hover:text-white hover:bg-white/[0.08] transition"
+        className="hidden lg:flex absolute top-4 left-4 z-50 h-8 w-8 items-center justify-center rounded-md text-white/70 hover:text-white hover:bg-white/[0.08] transition"
       >
         {/* Panel icon — rounded rect with a vertical divider at ~1/3 */}
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -8858,12 +9706,12 @@ export default function App() {
         // hidden clips the inner content as it collapses. The contents
         // also fade so they don't visually punch through during the
         // transition.
-        className="hidden lg:flex shrink-0 flex-col gap-6 border-r border-white/[0.06] overflow-hidden"
+        className="hidden lg:flex shrink-0 flex-col gap-6 border-r border-[#CCCCCC]/35 overflow-hidden"
         style={{
           width: sidebarOpen ? 280 : 0,
           // Extra top padding (3.5rem ≈ 56px) clears the 32×32 toggle
           // button that sits at top:16 / left:16 — without this the
-          // PROTOTYPE / PayPal header overlaps the button.
+          // Prototype/Catalog switch overlaps the button.
           padding: sidebarOpen ? '3.5rem 2rem 2rem 2rem' : '3.5rem 0 2rem 0',
           borderRightWidth: sidebarOpen ? 1 : 0,
           opacity: sidebarOpen ? 1 : 0,
@@ -8874,13 +9722,36 @@ export default function App() {
         aria-hidden={!sidebarOpen}
       >
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Prototype</p>
-          <h1 className="text-2xl font-bold mt-1">PayPal</h1>
-          <p className="text-[13px] text-white/60 mt-1">
-            Home flow
-          </p>
+          {/* Prototype / Catalog mode switch — Catalog mode breaks out of
+              the phone feed to browse cataloged components individually
+              with docs + a copyable code snippet, for front-end handoff. */}
+          <div className="flex gap-1 p-1 rounded-lg bg-white/5">
+            <button
+              onClick={() => setCatalogMode(false)}
+              className={`flex-1 px-2 py-1.5 rounded-md text-[11px] uppercase tracking-[0.14em] font-semibold transition ${
+                !catalogMode ? 'bg-white/15 text-white' : 'text-white/45 hover:text-white/70'
+              }`}
+            >
+              Prototype
+            </button>
+            <button
+              onClick={() => setCatalogMode(true)}
+              className={`flex-1 px-2 py-1.5 rounded-md text-[11px] uppercase tracking-[0.14em] font-semibold transition ${
+                catalogMode ? 'bg-white/15 text-white' : 'text-white/45 hover:text-white/70'
+              }`}
+            >
+              Catalog
+            </button>
+          </div>
         </div>
         <nav className="flex flex-col gap-3">
+          {catalogMode ? (
+            <CatalogSidebarList
+              selected={selectedCatalogId}
+              onSelect={setSelectedCatalogId}
+            />
+          ) : (
+            <>
           {/* HOME flow — starting frame is "Home" (frame 1). Frames 2–10
               are connected scroll positions within the same flow and
               live as nested steps below the flow header. */}
@@ -8905,7 +9776,7 @@ export default function App() {
             </button>
             {/* Frames within the Home flow — indented to read as
                 connected steps of the same flow. */}
-            <div className="flex flex-col gap-1 pl-3 ml-3 border-l border-white/[0.06]">
+            <div className="flex flex-col gap-1 pl-3 ml-3 border-l border-[#CCCCCC]/35">
               {FRAMES.map((f) => (
                 <button
                   key={f.id}
@@ -8930,14 +9801,33 @@ export default function App() {
               ))}
             </div>
           </div>
+            </>
+          )}
 
         </nav>
         <div className="mt-auto text-[11px] text-white/40 leading-relaxed">
-          Pick a flow above. Inside Home, use the arrows, click a dot, or tap a frame to jump between connected steps. ← / → also work.
+          {catalogMode
+            ? 'Pick a component above. Show code to grab a standalone snippet alongside the preview.'
+            : 'Pick a flow above. Inside Home, use the arrows, click a dot, or tap a frame to jump between connected steps. ← / → also work.'}
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col items-center justify-start gap-6 py-8 px-4">
+      <main
+        className={
+          catalogMode
+            ? 'flex-1 min-h-0 flex'
+            : 'flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-start gap-6 py-8 px-4'
+        }
+      >
+        {catalogMode ? (
+          <CatalogView
+            entry={
+              CATALOG_ENTRIES.find((e) => e.id === selectedCatalogId) ??
+              CATALOG_ENTRIES[0]
+            }
+          />
+        ) : (
+          <>
         <ScrollRootContext.Provider value={scrollRef}>
           <PhoneShell
             scrollRef={scrollRef}
@@ -8951,7 +9841,10 @@ export default function App() {
         {view === 'feed' && (
           <PrototypeNav active={active} onSelect={scrollToFrame} />
         )}
+          </>
+        )}
       </main>
+      </div>
     </div>
     </NavContext.Provider>
   )
