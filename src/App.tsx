@@ -362,7 +362,14 @@ const HScroll = ({
   return (
     <div
       ref={ref}
-      className={`flex gap-3 overflow-x-auto no-scrollbar cursor-grab touch-pan-x ${className}`}
+      // overflow-y-hidden is required, not decorative: per the CSS spec, an
+      // element with overflow-x set to anything but 'visible' while
+      // overflow-y is left at its 'visible' default has overflow-y computed
+      // as 'auto' instead — silently turning every one of these rows into a
+      // real (if 1-2px) vertical scroll container. no-scrollbar only hides
+      // the bar; it doesn't stop the scroll, so wheel/drag could catch on
+      // that sliver before bubbling to the feed. Pinning overflow-y closes it.
+      className={`flex gap-3 overflow-x-auto overflow-y-hidden no-scrollbar cursor-grab touch-pan-x ${className}`}
       style={gapPx != null ? { gap: gapPx } : undefined}
     >
       {children}
@@ -9845,6 +9852,7 @@ const CatalogView = ({ entry }: { entry: CatalogEntry }) => {
 
 export default function App() {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const homeFeedListRef = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState(1)
   const [view, setView] = useState<AppView>('feed')
   // Prototype sidebar collapse state — lets the presenter hide the dev
@@ -10155,6 +10163,16 @@ export default function App() {
         // true position regardless of intermediate transforms.
         const containerRect = sc.getBoundingClientRect()
         const targetRect = target.getBoundingClientRect()
+        // The phone preview itself sits inside a `transform: scale(previewScale)`
+        // wrapper (the bottom-right scale slider), so getBoundingClientRect
+        // returns post-transform (visually scaled) pixels while sc.scrollTop
+        // is always in the element's own unscaled layout pixels. Dividing the
+        // rect-derived deltas by previewScale converts them back to that same
+        // unscaled space — otherwise the computed target undershoots more and
+        // more the further the jump, which is why it only broke at extremes.
+        const scale = previewScale || 1
+        const dTop = (targetRect.top - containerRect.top) / scale
+        const dCenter = (containerRect.height / 2 - targetRect.height / 2) / scale
         // Account Snapshot (id 1) and Hero Collection (id 2) stay pinned
         // near the top of the feed — that's where they naturally sit and
         // there's nothing above them to center against. Every other frame
@@ -10162,10 +10180,8 @@ export default function App() {
         // the top, so tapping a component type brings it into clear focus.
         const top =
           frame.id === 1 || frame.id === 2
-            ? sc.scrollTop + (targetRect.top - containerRect.top) - (frame.offset ?? 12)
-            : sc.scrollTop +
-              (targetRect.top - containerRect.top) -
-              (containerRect.height / 2 - targetRect.height / 2)
+            ? sc.scrollTop + dTop - (frame.offset ?? 12)
+            : sc.scrollTop + dTop - dCenter
         animateScrollTo(sc, top)
       } else {
         animateScrollTo(sc, 0)
@@ -10195,6 +10211,72 @@ export default function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [active, view])
+
+  // Scroll-spy: as the user scrolls the feed by hand (drag/wheel, not just
+  // tapping a sidebar row), keep the Home Feed accordion's highlighted row
+  // in sync with whichever section currently sits closest to the viewport's
+  // vertical center. Account Snapshot and Hero Collection (frames 1 and 2)
+  // both use the 'top' anchor for scrollToFrame's jump-to behavior since
+  // they're already flush together, but that anchor is ambiguous for
+  // spying — '#account' and '#top-stores' are their own real section ids,
+  // so spying resolves them to distinct frames while frames 3+ reuse their
+  // existing `anchor` id directly.
+  useEffect(() => {
+    const sc = scrollRef.current
+    if (!sc || view !== 'feed') return
+    const spyTargets = FRAMES.map((f) => ({
+      id: f.id,
+      selector: f.id === 1 ? '#account' : f.id === 2 ? '#top-stores' : `#${f.anchor}`,
+    }))
+    let raf = 0
+    const update = () => {
+      raf = 0
+      // Account Snapshot is short, so its center sits well above the
+      // viewport's vertical center even at scrollTop 0 — closest-center
+      // matching would pick Hero Collection (top-stores) immediately on
+      // load. Pin to frame 1 until the user has actually scrolled past it.
+      if (sc.scrollTop < 24) {
+        setActive(FRAMES[0].id)
+        return
+      }
+      const containerRect = sc.getBoundingClientRect()
+      const viewportCenter = containerRect.top + containerRect.height / 2
+      let closestId: number | null = null
+      let closestDist = Infinity
+      for (const t of spyTargets) {
+        const el = sc.querySelector<HTMLElement>(t.selector)
+        if (!el) continue
+        const rect = el.getBoundingClientRect()
+        const dist = Math.abs(rect.top + rect.height / 2 - viewportCenter)
+        if (dist < closestDist) {
+          closestDist = dist
+          closestId = t.id
+        }
+      }
+      if (closestId != null) setActive(closestId)
+    }
+    const onScroll = () => {
+      if (raf) return
+      raf = requestAnimationFrame(update)
+    }
+    update()
+    sc.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      sc.removeEventListener('scroll', onScroll)
+      if (raf) cancelAnimationFrame(raf)
+    }
+  }, [view, catalogMode])
+
+  // Keep the active row visible inside the Home Feed accordion's own
+  // internal scroll — otherwise, once scroll-spy moves selection past the
+  // first few rows, the highlighted item sits below the accordion's fold
+  // and the user can't see what just got selected.
+  useEffect(() => {
+    const container = homeFeedListRef.current
+    if (!container) return
+    const item = container.querySelector<HTMLElement>(`[data-frame-id="${active}"]`)
+    item?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [active])
 
   const navApi: NavApi = {
     view,
@@ -10420,6 +10502,7 @@ export default function App() {
             </button>
             {openAccordions.has('home-feed') && (
               <div
+                ref={homeFeedListRef}
                 className="flex flex-col gap-2 pt-3 pb-4 flex-1 min-h-0 overflow-y-auto"
                 // Fade the top/bottom edges instead of a hard clip while
                 // this list scrolls internally.
@@ -10433,6 +10516,7 @@ export default function App() {
                 {FRAMES.map((f) => (
                   <button
                     key={f.id}
+                    data-frame-id={f.id}
                     onClick={() => scrollToFrame(f.id)}
                     className={`text-left p-4 rounded-2xl border flex items-center gap-3 transition shrink-0 ${
                       f.id === active && view === 'feed'
